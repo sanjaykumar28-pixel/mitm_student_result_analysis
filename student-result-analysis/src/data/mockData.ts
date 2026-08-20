@@ -33,7 +33,7 @@ export interface SubjectResult {
   name: string;
   credits: number;
   marks: number;
-  grade: Grade;
+  grade: Grade | "";
 }
 
 export interface SemesterResult {

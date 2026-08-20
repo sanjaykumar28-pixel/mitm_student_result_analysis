@@ -129,3 +129,100 @@ class AdminTopperRow(BaseModel):
 class AdminToppersResponse(BaseModel):
     toppers: list[AdminTopperRow]
     department_toppers: list[AdminTopperRow]
+
+
+class StudentSubjectMark(BaseModel):
+    code: str
+    name: str
+    credits: int | None = None
+    marks: float
+    grade: str | None = None
+
+
+class StudentSemesterResult(BaseModel):
+    semester: int
+    sgpa: float | None = None
+    cgpa: float | None = None
+    grand_total: float | None = None
+    average_marks: float | None = None
+    credits_earned: int | None = None
+    grade: str | None = None
+    subjects: list[StudentSubjectMark]
+
+
+class StudentCgpaPoint(BaseModel):
+    semester: str
+    cgpa: float
+
+
+class StudentDashboardResponse(BaseModel):
+    usn: str
+    name: str
+    email: EmailStr
+    department: str | None = None
+    semester: int | None = None
+    current_sgpa: float | None = None
+    overall_cgpa: float | None = None
+    current_semester: int | None = None
+    academic_status: str | None = None
+    recent_subjects: list[StudentSubjectMark]
+    subject_marks: list[StudentSubjectMark]
+    cgpa_trend: list[StudentCgpaPoint]
+
+
+class StudentResultsResponse(BaseModel):
+    usn: str
+    semesters: list[StudentSemesterResult]
+
+
+class StudentGpaSubject(BaseModel):
+    code: str
+    name: str
+    credits: int
+    marks: float
+    grade: str | None = None
+    grade_point: int | None = None
+
+
+class StudentGpaSemester(BaseModel):
+    semester: int
+    sgpa: float | None = None
+    credits: int
+    subjects: list[StudentGpaSubject]
+
+
+class StudentSgpaCgpaResponse(BaseModel):
+    usn: str
+    current_semester: int | None = None
+    sgpa: float | None = None
+    cgpa: float | None = None
+    subjects: list[StudentGpaSubject]
+    semesters: list[StudentGpaSemester]
+
+
+class StudentChartPoint(BaseModel):
+    semester: str
+    sgpa: float | None = None
+    cgpa: float | None = None
+    avg: float | None = None
+    best: float | None = None
+
+
+class StudentSubjectScore(BaseModel):
+    subject: str
+    score: float
+
+
+class StudentGradeCount(BaseModel):
+    grade: str
+    count: int
+
+
+class StudentAnalysisResponse(BaseModel):
+    sgpa_trend: list[StudentChartPoint]
+    cgpa_trend: list[StudentChartPoint]
+    subject_strength: list[StudentSubjectScore]
+    grade_distribution: list[StudentGradeCount]
+    semester_compare: list[StudentChartPoint]
+    strong_subjects: list[StudentSubjectScore]
+    weak_subjects: list[StudentSubjectScore]

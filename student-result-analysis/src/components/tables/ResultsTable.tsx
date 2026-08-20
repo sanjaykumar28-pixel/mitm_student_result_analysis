@@ -13,6 +13,14 @@ const gradeClass: Record<string, string> = {
 };
 
 export function ResultsTable({ subjects }: { subjects: SubjectResult[] }) {
+  if (subjects.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-12 text-center">
+        <p className="text-sm font-medium">No results found</p>
+        <p className="mt-1 text-xs text-muted-foreground">No stored marks for this semester.</p>
+      </div>
+    );
+  }
   return (
     <div className="rounded-xl border bg-card">
       <Table>
@@ -34,10 +42,16 @@ export function ResultsTable({ subjects }: { subjects: SubjectResult[] }) {
               <TableCell className="text-center">{s.credits}</TableCell>
               <TableCell className="text-center">{s.marks}</TableCell>
               <TableCell className="text-center">
-                <Badge variant="secondary" className={gradeClass[s.grade]}>{s.grade}</Badge>
+                {s.grade ? (
+                  <Badge variant="secondary" className={gradeClass[s.grade]}>{s.grade}</Badge>
+                ) : (
+                  "—"
+                )}
               </TableCell>
               <TableCell className="text-center">
-                {s.grade === "F" ? (
+                {!s.grade ? (
+                  <span className="text-xs text-muted-foreground">—</span>
+                ) : s.grade === "F" ? (
                   <span className="text-xs font-medium text-destructive">Fail</span>
                 ) : (
                   <span className="text-xs font-medium text-success">Pass</span>

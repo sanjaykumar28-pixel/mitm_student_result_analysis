@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import SessionLocal
 from app.models import Login
-from app.routers import admin, auth
+from app.routers import admin, auth, student
 from app.security import hash_password
 
 
@@ -56,6 +56,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(student.router)
 
 
 @app.get("/health")

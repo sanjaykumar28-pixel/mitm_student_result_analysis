@@ -1,8 +1,28 @@
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.models import Student, StudentResult
-from app.schemas import AdminResultRow, AdminResultsResponse, AdminTopperRow, AdminToppersResponse
+from collections import defaultdict
+
+from app.models import Student, StudentMark, StudentResult, Subject
+from app.schemas import (
+    AdminResultRow,
+    AdminResultsResponse,
+    AdminTopperRow,
+    AdminToppersResponse,
+    StudentAnalysisResponse,
+    StudentCgpaPoint,
+    StudentChartPoint,
+    StudentDashboardResponse,
+    StudentGpaSemester,
+    StudentGpaSubject,
+    StudentGradeCount,
+    StudentResultsResponse,
+    StudentSemesterResult,
+    StudentSgpaCgpaResponse,
+    StudentSubjectMark,
+    StudentSubjectScore,
+)
+from app.services.grading import GRADE_POINTS, default_credits, letter_grade
 
 
 def _as_float(value) -> float | None:
@@ -104,3 +124,248 @@ def list_admin_toppers(db: Session) -> AdminToppersResponse:
             seen_dept.add(student.department)
             department_toppers.append(row)
     return AdminToppersResponse(toppers=toppers, department_toppers=department_toppers)
+
+
+def _subject_mark(mark: StudentMark, subject: Subject | None) -> StudentSubjectMark:
+    name = None
+    credits = None
+    if subject is not None:
+        name = subject.subject_name
+        credits = subject.credits
+    return StudentSubjectMark(
+        code=mark.subject_code,
+        name=name or mark.subject_code,
+        credits=credits,
+        marks=_as_float(mark.total_marks) or 0,
+        grade=mark.grade,
+    )
+
+
+def _marks_by_semester(db: Session, usn: str) -> dict[int, list[StudentSubjectMark]]:
+    rows = (
+        db.query(StudentMark, Subject)
+        .outerjoin(Subject, Subject.subject_code == StudentMark.subject_code)
+        .filter(StudentMark.usn == usn)
+        .order_by(StudentMark.semester.asc(), StudentMark.subject_code.asc())
+        .all()
+    )
+    grouped: dict[int, list[StudentSubjectMark]] = {}
+    for mark, subject in rows:
+        grouped.setdefault(mark.semester, []).append(_subject_mark(mark, subject))
+    return grouped
+
+
+def list_student_results(db: Session, *, usn: str, semester: int | None = None) -> StudentResultsResponse:
+    query = db.query(StudentResult).filter(StudentResult.usn == usn)
+    if semester is not None:
+        query = query.filter(StudentResult.semester == semester)
+    result_rows = query.order_by(StudentResult.semester.asc()).all()
+    marks_map = _marks_by_semester(db, usn)
+
+    semesters: list[StudentSemesterResult] = []
+    seen = set()
+    for result in result_rows:
+        seen.add(result.semester)
+        semesters.append(
+            StudentSemesterResult(
+                semester=result.semester,
+                sgpa=_as_float(result.sgpa),
+                cgpa=_as_float(result.cgpa),
+                grand_total=_as_float(result.grand_total),
+                average_marks=_as_float(result.average_marks),
+                credits_earned=result.credits_earned,
+                grade=result.grade,
+                subjects=marks_map.get(result.semester, []),
+            )
+        )
+    if semester is None:
+        for sem, subjects in marks_map.items():
+            if sem in seen:
+                continue
+            semesters.append(
+                StudentSemesterResult(
+                    semester=sem,
+                    subjects=subjects,
+                )
+            )
+        semesters.sort(key=lambda row: row.semester)
+    elif not semesters:
+        subjects = marks_map.get(semester, [])
+        if subjects:
+            semesters.append(StudentSemesterResult(semester=semester, subjects=subjects))
+
+    return StudentResultsResponse(usn=usn, semesters=semesters)
+
+
+def get_student_dashboard(db: Session, *, usn: str, email: str) -> StudentDashboardResponse:
+    student = db.query(Student).filter(Student.usn == usn).first()
+    payload = list_student_results(db, usn=usn)
+    latest = payload.semesters[-1] if payload.semesters else None
+    recent = latest.subjects if latest else []
+    cgpa_trend = [
+        StudentCgpaPoint(semester=f"S{row.semester}", cgpa=row.cgpa)
+        for row in payload.semesters
+        if row.cgpa is not None
+    ]
+    return StudentDashboardResponse(
+        usn=usn,
+        name=student.student_name if student else usn,
+        email=email,
+        department=student.department if student else None,
+        semester=student.semester if student else (latest.semester if latest else None),
+        current_sgpa=latest.sgpa if latest else None,
+        overall_cgpa=latest.cgpa if latest else None,
+        current_semester=latest.semester if latest else None,
+        academic_status=latest.grade if latest else None,
+        recent_subjects=recent,
+        subject_marks=recent,
+        cgpa_trend=cgpa_trend,
+    )
+
+
+def _resolved_credits(mark: StudentMark, subject: Subject | None) -> int:
+    if subject is not None and subject.credits:
+        return int(subject.credits)
+    return default_credits(mark.subject_code)
+
+
+def _resolved_grade(mark: StudentMark) -> str | None:
+    if mark.grade:
+        return mark.grade
+    total = _as_float(mark.total_marks)
+    if total is None:
+        return None
+    return letter_grade(total)
+
+
+def _computed_gpa_semesters(db: Session, usn: str) -> list[StudentGpaSemester]:
+    rows = (
+        db.query(StudentMark, Subject)
+        .outerjoin(Subject, Subject.subject_code == StudentMark.subject_code)
+        .filter(StudentMark.usn == usn)
+        .order_by(StudentMark.semester.asc(), StudentMark.subject_code.asc())
+        .all()
+    )
+    grouped: dict[int, list[StudentGpaSubject]] = defaultdict(list)
+    for mark, subject in rows:
+        grade = _resolved_grade(mark)
+        credits = _resolved_credits(mark, subject)
+        name = None
+        if subject is not None:
+            name = subject.subject_name
+        grouped[mark.semester].append(
+            StudentGpaSubject(
+                code=mark.subject_code,
+                name=name or mark.subject_code,
+                credits=credits,
+                marks=_as_float(mark.total_marks) or 0,
+                grade=grade,
+                grade_point=GRADE_POINTS.get(grade) if grade else None,
+            )
+        )
+
+    semesters: list[StudentGpaSemester] = []
+    for semester in sorted(grouped):
+        subjects = grouped[semester]
+        registered = 0
+        points = 0.0
+        for item in subjects:
+            if item.grade_point is None:
+                continue
+            registered += item.credits
+            points += item.credits * item.grade_point
+        sgpa = round(points / registered, 2) if registered else None
+        semesters.append(
+            StudentGpaSemester(
+                semester=semester,
+                sgpa=sgpa,
+                credits=registered,
+                subjects=subjects,
+            )
+        )
+    return semesters
+
+
+def _overall_cgpa(semesters: list[StudentGpaSemester]) -> float | None:
+    weighted = 0.0
+    credits = 0
+    latest = None
+    for row in semesters:
+        if row.sgpa is None or row.credits <= 0:
+            continue
+        weighted += row.sgpa * row.credits
+        credits += row.credits
+        latest = round(weighted / credits, 2)
+    return latest
+
+
+def get_student_sgpa_cgpa(db: Session, *, usn: str) -> StudentSgpaCgpaResponse:
+    semesters = _computed_gpa_semesters(db, usn)
+    latest = semesters[-1] if semesters else None
+    return StudentSgpaCgpaResponse(
+        usn=usn,
+        current_semester=latest.semester if latest else None,
+        sgpa=latest.sgpa if latest else None,
+        cgpa=_overall_cgpa(semesters),
+        subjects=latest.subjects if latest else [],
+        semesters=semesters,
+    )
+
+
+def get_student_analysis(db: Session, *, usn: str) -> StudentAnalysisResponse:
+    semesters = _computed_gpa_semesters(db, usn)
+    running = 0.0
+    running_credits = 0
+    sgpa_trend: list[StudentChartPoint] = []
+    cgpa_trend: list[StudentChartPoint] = []
+    semester_compare: list[StudentChartPoint] = []
+    subject_strength: list[StudentSubjectScore] = []
+    grade_counts: dict[str, int] = defaultdict(int)
+
+    for row in semesters:
+        if row.sgpa is not None:
+            sgpa_trend.append(StudentChartPoint(semester=f"S{row.semester}", sgpa=row.sgpa))
+        if row.sgpa is not None and row.credits > 0:
+            running += row.sgpa * row.credits
+            running_credits += row.credits
+            cgpa_trend.append(
+                StudentChartPoint(semester=f"S{row.semester}", cgpa=round(running / running_credits, 2))
+            )
+        marks = [item.marks for item in row.subjects]
+        if marks:
+            semester_compare.append(
+                StudentChartPoint(
+                    semester=f"Sem {row.semester}",
+                    avg=round(sum(marks) / len(marks), 2),
+                    best=max(marks),
+                )
+            )
+        for item in row.subjects:
+            label = item.name if len(semesters) == 1 else f"{item.name} (S{row.semester})"
+            subject_strength.append(StudentSubjectScore(subject=label, score=item.marks))
+            if item.grade:
+                grade_counts[item.grade] += 1
+
+    ordered_grades = ["O", "A+", "A", "B+", "B", "C", "F"]
+    grade_distribution = [
+        StudentGradeCount(grade=grade, count=grade_counts[grade])
+        for grade in ordered_grades
+        if grade_counts.get(grade)
+    ]
+    for grade, count in grade_counts.items():
+        if grade not in ordered_grades:
+            grade_distribution.append(StudentGradeCount(grade=grade, count=count))
+
+    ranked = sorted(subject_strength, key=lambda item: item.score, reverse=True)
+    strong = ranked[:3]
+    weak = sorted(subject_strength, key=lambda item: item.score)[:3]
+
+    return StudentAnalysisResponse(
+        sgpa_trend=sgpa_trend,
+        cgpa_trend=cgpa_trend,
+        subject_strength=subject_strength,
+        grade_distribution=grade_distribution,
+        semester_compare=semester_compare,
+        strong_subjects=strong,
+        weak_subjects=weak,
+    )
