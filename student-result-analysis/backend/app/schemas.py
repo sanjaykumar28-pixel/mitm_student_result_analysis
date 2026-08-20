@@ -64,3 +64,55 @@ class AddStudentResponse(BaseModel):
     department: str
     semester: int | None
     role: Role = "student"
+
+
+class ImportErrorItemSchema(BaseModel):
+    row: int
+    usn: str | None = None
+    subject: str | None = None
+    error: str
+
+
+class ImportStudentPreview(BaseModel):
+    usn: str
+    name: str
+    grand_total: float
+    average_marks: float
+    sgpa: float
+    cgpa: float
+
+
+class ImportUploadResponse(BaseModel):
+    students_upserted: int
+    subjects_upserted: int
+    marks_upserted: int
+    results_upserted: int
+    department: str
+    semester: int
+    academic_year: str | None = None
+    sheet_name: str
+    students: list[ImportStudentPreview]
+    errors: list[ImportErrorItemSchema] = []
+
+
+class AdminResultRow(BaseModel):
+    result_id: int
+    usn: str
+    student_name: str
+    department: str
+    semester: int
+    academic_year: str | None = None
+    grand_total: float
+    average_marks: float
+    credits_earned: int | None = None
+    grade: str | None = None
+    sgpa: float | None = None
+    cgpa: float | None = None
+
+
+class AdminResultsResponse(BaseModel):
+    department: str | None = None
+    semester: int | None = None
+    total: int
+    departments: list[str]
+    results: list[AdminResultRow]
