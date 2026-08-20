@@ -116,3 +116,16 @@ class AdminResultsResponse(BaseModel):
     total: int
     departments: list[str]
     results: list[AdminResultRow]
+
+
+class AdminTopperRow(BaseModel):
+    usn: str
+    name: str
+    department: str
+    semester: int
+    cgpa: float
+
+
+class AdminToppersResponse(BaseModel):
+    toppers: list[AdminTopperRow]
+    department_toppers: list[AdminTopperRow]

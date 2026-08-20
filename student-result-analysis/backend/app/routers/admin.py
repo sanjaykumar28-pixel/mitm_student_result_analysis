@@ -5,10 +5,16 @@ import logging
 from app.database import get_db
 from app.deps import require_admin
 from app.models import Login
-from app.schemas import AddStudentRequest, AddStudentResponse, AdminResultsResponse, ImportUploadResponse
+from app.schemas import (
+    AddStudentRequest,
+    AddStudentResponse,
+    AdminResultsResponse,
+    AdminToppersResponse,
+    ImportUploadResponse,
+)
 from app.services.excel_parser import parse_result_workbook
 from app.services.import_results import ImportValidationError, persist_parsed_workbook
-from app.services.results import list_admin_results
+from app.services.results import list_admin_results, list_admin_toppers
 from app.services.students import create_student_with_login
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -22,6 +28,29 @@ def add_student(
     _: Login = Depends(require_admin),
 ) -> AddStudentResponse:
     return create_student_with_login(db, body)
+
+
+@router.get("/results", response_model=AdminResultsResponse)
+def get_admin_results(
+    department: str | None = Query(None, max_length=80),
+    semester: int | None = Query(None, ge=1, le=8),
+    search: str | None = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminResultsResponse:
+    dept = department.strip() if department and department.strip() else None
+    if dept and dept.lower() == "all":
+        dept = None
+    q = search.strip() if search and search.strip() else None
+    return list_admin_results(db, department=dept, semester=semester, search=q)
+
+
+@router.get("/toppers", response_model=AdminToppersResponse)
+def get_admin_toppers(
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminToppersResponse:
+    return list_admin_toppers(db)
 
 
 @router.post("/upload", response_model=ImportUploadResponse)

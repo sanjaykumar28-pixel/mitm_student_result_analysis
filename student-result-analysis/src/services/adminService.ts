@@ -40,6 +40,42 @@ export interface ImportUploadResponse {
   students: ImportStudentPreview[];
 }
 
+export interface AdminResultRow {
+  result_id: number;
+  usn: string;
+  student_name: string;
+  department: string;
+  semester: number;
+  academic_year: string | null;
+  grand_total: number;
+  average_marks: number;
+  credits_earned: number | null;
+  grade: string | null;
+  sgpa: number | null;
+  cgpa: number | null;
+}
+
+export interface AdminResultsResponse {
+  department: string | null;
+  semester: number | null;
+  total: number;
+  departments: string[];
+  results: AdminResultRow[];
+}
+
+export interface AdminTopperRow {
+  usn: string;
+  name: string;
+  department: string;
+  semester: number;
+  cgpa: number;
+}
+
+export interface AdminToppersResponse {
+  toppers: AdminTopperRow[];
+  department_toppers: AdminTopperRow[];
+}
+
 export const adminService = {
   getDashboardStats: () => api.get("/admin/stats").then((r) => r.data),
   addStudent: (data: AddStudentPayload) =>
@@ -56,7 +92,8 @@ export const adminService = {
       })
       .then((r) => r.data);
   },
-  getResults: (params?: Record<string, unknown>) => api.get("/admin/results", { params }).then((r) => r.data),
+  getResults: (params?: { department?: string; semester?: number; search?: string }) =>
+    api.get<AdminResultsResponse>("/admin/results", { params }).then((r) => r.data),
   deleteResult: (id: string) => api.delete(`/admin/results/${id}`).then((r) => r.data),
-  getToppers: () => api.get("/admin/toppers").then((r) => r.data),
+  getToppers: () => api.get<AdminToppersResponse>("/admin/toppers").then((r) => r.data),
 };

@@ -1,8 +1,8 @@
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models import Student, StudentResult
-from app.schemas import AdminResultRow, AdminResultsResponse
+from app.schemas import AdminResultRow, AdminResultsResponse, AdminTopperRow, AdminToppersResponse
 
 
 def _as_float(value) -> float | None:
@@ -31,16 +31,17 @@ def list_admin_results(
         db.query(StudentResult, Student)
         .join(Student, Student.usn == StudentResult.usn)
     )
-    if department:
-        query = query.filter(Student.department == department)
+    dept = department.strip() if department else None
+    if dept:
+        query = query.filter(func.lower(Student.department) == dept.lower())
     if semester is not None:
         query = query.filter(StudentResult.semester == semester)
     if search:
-        like = f"%{search.strip()}%"
+        like = f"%{search.strip().lower()}%"
         query = query.filter(
             or_(
-                Student.usn.ilike(like),
-                Student.student_name.ilike(like),
+                func.lower(Student.usn).like(like),
+                func.lower(Student.student_name).like(like),
             )
         )
 
@@ -63,9 +64,43 @@ def list_admin_results(
         for result, student in rows
     ]
     return AdminResultsResponse(
-        department=department,
+        department=dept,
         semester=semester,
         total=len(results),
         departments=departments,
         results=results,
     )
+
+
+def list_admin_toppers(db: Session) -> AdminToppersResponse:
+    rows = (
+        db.query(StudentResult, Student)
+        .join(Student, Student.usn == StudentResult.usn)
+        .filter(StudentResult.cgpa.isnot(None))
+        .order_by(StudentResult.cgpa.desc(), StudentResult.semester.desc(), Student.usn.asc())
+        .all()
+    )
+    seen_usn: set[str] = set()
+    seen_dept: set[str] = set()
+    toppers: list[AdminTopperRow] = []
+    department_toppers: list[AdminTopperRow] = []
+    for result, student in rows:
+        if student.usn in seen_usn:
+            continue
+        seen_usn.add(student.usn)
+        cgpa = _as_float(result.cgpa)
+        if cgpa is None:
+            continue
+        row = AdminTopperRow(
+            usn=student.usn,
+            name=student.student_name,
+            department=student.department,
+            semester=result.semester,
+            cgpa=cgpa,
+        )
+        if len(toppers) < 10:
+            toppers.append(row)
+        if student.department not in seen_dept:
+            seen_dept.add(student.department)
+            department_toppers.append(row)
+    return AdminToppersResponse(toppers=toppers, department_toppers=department_toppers)
