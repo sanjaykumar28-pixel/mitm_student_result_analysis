@@ -21,6 +21,7 @@ import { Route as AdminViewResultsRouteImport } from './routes/admin.view-result
 import { Route as AdminUploadExcelRouteImport } from './routes/admin.upload-excel'
 import { Route as AdminToppersRouteImport } from './routes/admin.toppers'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
+import { Route as AdminAddSubjectRouteImport } from './routes/admin.add-subject'
 import { Route as AdminAddStudentRouteImport } from './routes/admin.add-student'
 
 const StudentRoute = StudentRouteImport.update({
@@ -83,6 +84,11 @@ const AdminDashboardRoute = AdminDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAddSubjectRoute = AdminAddSubjectRouteImport.update({
+  id: '/add-subject',
+  path: '/add-subject',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAddStudentRoute = AdminAddStudentRouteImport.update({
   id: '/add-student',
   path: '/add-student',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/student': typeof StudentRouteWithChildren
   '/admin/add-student': typeof AdminAddStudentRoute
+  '/admin/add-subject': typeof AdminAddSubjectRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/toppers': typeof AdminToppersRoute
   '/admin/upload-excel': typeof AdminUploadExcelRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/student': typeof StudentRouteWithChildren
   '/admin/add-student': typeof AdminAddStudentRoute
+  '/admin/add-subject': typeof AdminAddSubjectRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/toppers': typeof AdminToppersRoute
   '/admin/upload-excel': typeof AdminUploadExcelRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/student': typeof StudentRouteWithChildren
   '/admin/add-student': typeof AdminAddStudentRoute
+  '/admin/add-subject': typeof AdminAddSubjectRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/toppers': typeof AdminToppersRoute
   '/admin/upload-excel': typeof AdminUploadExcelRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/student'
     | '/admin/add-student'
+    | '/admin/add-subject'
     | '/admin/dashboard'
     | '/admin/toppers'
     | '/admin/upload-excel'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/student'
     | '/admin/add-student'
+    | '/admin/add-subject'
     | '/admin/dashboard'
     | '/admin/toppers'
     | '/admin/upload-excel'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/student'
     | '/admin/add-student'
+    | '/admin/add-subject'
     | '/admin/dashboard'
     | '/admin/toppers'
     | '/admin/upload-excel'
@@ -276,6 +288,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/add-subject': {
+      id: '/admin/add-subject'
+      path: '/add-subject'
+      fullPath: '/admin/add-subject'
+      preLoaderRoute: typeof AdminAddSubjectRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/add-student': {
       id: '/admin/add-student'
       path: '/add-student'
@@ -288,6 +307,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminAddStudentRoute: typeof AdminAddStudentRoute
+  AdminAddSubjectRoute: typeof AdminAddSubjectRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminToppersRoute: typeof AdminToppersRoute
   AdminUploadExcelRoute: typeof AdminUploadExcelRoute
@@ -296,6 +316,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAddStudentRoute: AdminAddStudentRoute,
+  AdminAddSubjectRoute: AdminAddSubjectRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminToppersRoute: AdminToppersRoute,
   AdminUploadExcelRoute: AdminUploadExcelRoute,
