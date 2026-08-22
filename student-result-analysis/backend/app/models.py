@@ -58,6 +58,7 @@ class Subject(Base):
     subject_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     credits: Mapped[int | None] = mapped_column(Integer, nullable=True)
     semester: Mapped[int] = mapped_column(Integer, nullable=False)
+    department: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
 
 class StudentMark(Base):

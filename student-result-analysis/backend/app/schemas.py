@@ -66,6 +66,33 @@ class AddStudentResponse(BaseModel):
     role: Role = "student"
 
 
+class AddSubjectRequest(BaseModel):
+    subject_name: str = Field(min_length=2, max_length=100)
+    subject_code: str = Field(min_length=2, max_length=20)
+    credit: int = Field(ge=1, le=10)
+    semester: int = Field(ge=1, le=8)
+    department: str = Field(min_length=1, max_length=80)
+
+    @field_validator("subject_name", "subject_code", "department")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("subject_code")
+    @classmethod
+    def normalize_code(cls, value: str) -> str:
+        return value.strip().upper()
+
+
+class AddSubjectResponse(BaseModel):
+    subject_id: int
+    subject_name: str | None
+    subject_code: str
+    credit: int | None
+    semester: int
+    department: str | None
+
+
 class ImportErrorItemSchema(BaseModel):
     row: int
     usn: str | None = None

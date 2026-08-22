@@ -8,6 +8,8 @@ from app.models import Login
 from app.schemas import (
     AddStudentRequest,
     AddStudentResponse,
+    AddSubjectRequest,
+    AddSubjectResponse,
     AdminResultsResponse,
     AdminToppersResponse,
     ImportUploadResponse,
@@ -16,6 +18,7 @@ from app.services.excel_parser import parse_result_workbook
 from app.services.import_results import ImportValidationError, persist_parsed_workbook
 from app.services.results import list_admin_results, list_admin_toppers
 from app.services.students import create_student_with_login
+from app.services.subjects import create_subject
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -28,6 +31,15 @@ def add_student(
     _: Login = Depends(require_admin),
 ) -> AddStudentResponse:
     return create_student_with_login(db, body)
+
+
+@router.post("/subjects", response_model=AddSubjectResponse, status_code=201)
+def add_subject(
+    body: AddSubjectRequest,
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AddSubjectResponse:
+    return create_subject(db, body)
 
 
 @router.get("/results", response_model=AdminResultsResponse)

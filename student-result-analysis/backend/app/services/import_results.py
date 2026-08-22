@@ -42,6 +42,7 @@ def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUpload
                     subject_name=None,
                     credits=credits,
                     semester=semester,
+                    department=department,
                 )
                 db.add(subject)
                 subjects_upserted += 1
