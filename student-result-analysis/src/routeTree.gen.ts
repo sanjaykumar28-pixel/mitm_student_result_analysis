@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudentSgpaCgpaRouteImport } from './routes/student.sgpa-cgpa'
 import { Route as StudentResultsRouteImport } from './routes/student.results'
+import { Route as StudentProfileRouteImport } from './routes/student.profile'
 import { Route as StudentDashboardRouteImport } from './routes/student.dashboard'
 import { Route as StudentAnalysisRouteImport } from './routes/student.analysis'
 import { Route as AdminViewResultsRouteImport } from './routes/admin.view-results'
@@ -52,6 +53,11 @@ const StudentSgpaCgpaRoute = StudentSgpaCgpaRouteImport.update({
 const StudentResultsRoute = StudentResultsRouteImport.update({
   id: '/results',
   path: '/results',
+  getParentRoute: () => StudentRoute,
+} as any)
+const StudentProfileRoute = StudentProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => StudentRoute,
 } as any)
 const StudentDashboardRoute = StudentDashboardRouteImport.update({
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/admin/view-results': typeof AdminViewResultsRoute
   '/student/analysis': typeof StudentAnalysisRoute
   '/student/dashboard': typeof StudentDashboardRoute
+  '/student/profile': typeof StudentProfileRoute
   '/student/results': typeof StudentResultsRoute
   '/student/sgpa-cgpa': typeof StudentSgpaCgpaRoute
 }
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/admin/view-results': typeof AdminViewResultsRoute
   '/student/analysis': typeof StudentAnalysisRoute
   '/student/dashboard': typeof StudentDashboardRoute
+  '/student/profile': typeof StudentProfileRoute
   '/student/results': typeof StudentResultsRoute
   '/student/sgpa-cgpa': typeof StudentSgpaCgpaRoute
 }
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/admin/view-results': typeof AdminViewResultsRoute
   '/student/analysis': typeof StudentAnalysisRoute
   '/student/dashboard': typeof StudentDashboardRoute
+  '/student/profile': typeof StudentProfileRoute
   '/student/results': typeof StudentResultsRoute
   '/student/sgpa-cgpa': typeof StudentSgpaCgpaRoute
 }
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/admin/view-results'
     | '/student/analysis'
     | '/student/dashboard'
+    | '/student/profile'
     | '/student/results'
     | '/student/sgpa-cgpa'
   fileRoutesByTo: FileRoutesByTo
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/admin/view-results'
     | '/student/analysis'
     | '/student/dashboard'
+    | '/student/profile'
     | '/student/results'
     | '/student/sgpa-cgpa'
   id:
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/admin/view-results'
     | '/student/analysis'
     | '/student/dashboard'
+    | '/student/profile'
     | '/student/results'
     | '/student/sgpa-cgpa'
   fileRoutesById: FileRoutesById
@@ -244,6 +256,13 @@ declare module '@tanstack/react-router' {
       path: '/results'
       fullPath: '/student/results'
       preLoaderRoute: typeof StudentResultsRouteImport
+      parentRoute: typeof StudentRoute
+    }
+    '/student/profile': {
+      id: '/student/profile'
+      path: '/profile'
+      fullPath: '/student/profile'
+      preLoaderRoute: typeof StudentProfileRouteImport
       parentRoute: typeof StudentRoute
     }
     '/student/dashboard': {
@@ -328,6 +347,7 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 interface StudentRouteChildren {
   StudentAnalysisRoute: typeof StudentAnalysisRoute
   StudentDashboardRoute: typeof StudentDashboardRoute
+  StudentProfileRoute: typeof StudentProfileRoute
   StudentResultsRoute: typeof StudentResultsRoute
   StudentSgpaCgpaRoute: typeof StudentSgpaCgpaRoute
 }
@@ -335,6 +355,7 @@ interface StudentRouteChildren {
 const StudentRouteChildren: StudentRouteChildren = {
   StudentAnalysisRoute: StudentAnalysisRoute,
   StudentDashboardRoute: StudentDashboardRoute,
+  StudentProfileRoute: StudentProfileRoute,
   StudentResultsRoute: StudentResultsRoute,
   StudentSgpaCgpaRoute: StudentSgpaCgpaRoute,
 }

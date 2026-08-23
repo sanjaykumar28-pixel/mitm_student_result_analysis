@@ -8,8 +8,10 @@ import { studentService, type StudentDashboardResponse } from "@/services/studen
 import { 
   User, Mail, BookOpen, Award, ShieldCheck, 
   GraduationCap, Building, CheckCircle2, Circle, 
-  CreditCard, Activity
+  CreditCard, Activity, Edit2, Save, X
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/student/profile")({
   component: StudentProfile,
@@ -27,17 +29,58 @@ function StudentProfile() {
     return () => { cancelled = true; };
   }, []);
 
-  const name = user?.name ?? "Student";
-  const email = user?.email ?? "";
+  const [localProfile, setLocalProfile] = useState<{
+    name?: string;
+    email?: string;
+    department?: string;
+    semester?: string;
+  }>({});
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    department: "",
+    semester: ""
+  });
+
+  const name = localProfile.name ?? user?.name ?? "Student";
+  const email = localProfile.email ?? user?.email ?? "";
   const usn = user?.usn || user?.id || data?.usn || "—";
-  const department = data?.department || user?.department || "—";
-  const semester = data?.semester || user?.semester || "—";
+  const department = localProfile.department ?? data?.department ?? user?.department ?? "—";
+  const semester = localProfile.semester ?? data?.semester ?? user?.semester ?? "—";
   
   const initials = name.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("") || "S";
   
   const sgpa = data?.current_sgpa ? data.current_sgpa.toFixed(2) : "—";
   const cgpa = data?.overall_cgpa ? data.overall_cgpa.toFixed(2) : "—";
-  const currentSemester = data?.current_semester || semester;
+  const currentSemester = localProfile.semester && !isNaN(parseInt(localProfile.semester, 10)) 
+    ? parseInt(localProfile.semester, 10) 
+    : (data?.current_semester || semester);
+
+  const startEdit = () => {
+    setEditForm({
+      name,
+      email,
+      department: department.toString(),
+      semester: semester.toString()
+    });
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const saveEdit = () => {
+    setLocalProfile({
+      name: editForm.name,
+      email: editForm.email,
+      department: editForm.department,
+      semester: editForm.semester
+    });
+    setIsEditing(false);
+    alert("Profile updated locally. A backend update API is required for permanent database changes.");
+  };
   const status = data?.academic_status || "Active";
 
   return (
@@ -96,21 +139,46 @@ function StudentProfile() {
         <div className="space-y-6 lg:col-span-2">
           {/* 2. Personal Information */}
           <Card className="shadow-sm">
-            <CardHeader className="border-b bg-muted/20 pb-4">
+            <CardHeader className="border-b bg-muted/20 pb-4 flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <User className="h-5 w-5 text-primary" />
                 Personal Information
               </CardTitle>
+              {!isEditing ? (
+                <Button variant="outline" size="sm" onClick={startEdit}>
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={cancelEdit}>
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={saveEdit}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="p-6">
               <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-8">
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Full Name</div>
-                  <div className="mt-1 text-base font-medium">{name}</div>
+                  {isEditing ? (
+                    <Input className="mt-1 h-8" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} />
+                  ) : (
+                    <div className="mt-1 text-base font-medium">{name}</div>
+                  )}
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Email Address</div>
-                  <div className="mt-1 text-base font-medium">{email}</div>
+                  {isEditing ? (
+                    <Input className="mt-1 h-8" value={editForm.email} onChange={(e) => setEditForm({...editForm, email: e.target.value})} />
+                  ) : (
+                    <div className="mt-1 text-base font-medium">{email}</div>
+                  )}
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Student ID / USN</div>
@@ -138,13 +206,21 @@ function StudentProfile() {
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Building className="h-4 w-4" /> Department
                   </div>
-                  <div className="mt-1 text-base font-medium">{department}</div>
+                  {isEditing ? (
+                    <Input className="mt-1 h-8" value={editForm.department} onChange={(e) => setEditForm({...editForm, department: e.target.value})} />
+                  ) : (
+                    <div className="mt-1 text-base font-medium">{department}</div>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <BookOpen className="h-4 w-4" /> Current Semester
                   </div>
-                  <div className="mt-1 text-base font-medium">{currentSemester !== "—" ? `Semester ${currentSemester}` : "—"}</div>
+                  {isEditing ? (
+                    <Input className="mt-1 h-8" type="number" value={editForm.semester} onChange={(e) => setEditForm({...editForm, semester: e.target.value})} />
+                  ) : (
+                    <div className="mt-1 text-base font-medium">{currentSemester !== "—" ? `Semester ${currentSemester}` : "—"}</div>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">

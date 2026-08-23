@@ -70,7 +70,11 @@ export function Navbar({ onMenuClick, onToggleCollapse, collapsed }: Props) {
               <p className="truncate text-xs font-normal text-muted-foreground">{user?.email}</p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              if (user?.role === "student") {
+                navigate({ to: "/student/profile" as any });
+              }
+            }}>
               <User className="mr-2 h-4 w-4" />
               Profile
             </DropdownMenuItem>

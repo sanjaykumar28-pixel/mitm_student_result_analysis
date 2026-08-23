@@ -72,12 +72,15 @@ function StudentResults() {
             top: 0;
             width: 100%;
             margin: 0;
-            padding: 20px;
+            padding: 15mm 15mm;
             box-sizing: border-box;
+            page-break-inside: avoid;
+            font-size: 14px;
           }
+          /* Removing margins from @page removes browser header and footer */
           @page {
-            size: A4;
-            margin: 20mm;
+            size: A4 portrait;
+            margin: 0;
           }
         }
       `}</style>
@@ -208,6 +211,13 @@ function StudentResults() {
                   <td className="border border-black p-2 text-center" colSpan={8}>SGPA</td>
                   <td className="border border-black p-2 text-center" colSpan={2}>
                     {semData?.sgpa != null ? semData.sgpa.toFixed(2) : "—"}
+                  </td>
+                </tr>
+                {/* CGPA Row */}
+                <tr className="font-bold">
+                  <td className="border border-black p-2 text-center" colSpan={8}>CGPA</td>
+                  <td className="border border-black p-2 text-center" colSpan={2}>
+                    {semData?.cgpa != null ? semData.cgpa.toFixed(2) : (dashboard?.overall_cgpa != null ? dashboard.overall_cgpa.toFixed(2) : "—")}
                   </td>
                 </tr>
               </tbody>
