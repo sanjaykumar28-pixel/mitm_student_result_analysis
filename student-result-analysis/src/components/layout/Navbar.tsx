@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Bell, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun, User } from "lucide-react";
 import { useEffect, useState } from "react";
+import { NotificationDropdown } from "./NotificationDropdown";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -47,10 +48,7 @@ export function Navbar({ onMenuClick, onToggleCollapse, collapsed }: Props) {
         <Button variant="ghost" size="icon" onClick={() => setDark((d) => !d)} aria-label="Toggle theme">
           {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <Badge className="absolute -right-0.5 -top-0.5 h-4 min-w-4 rounded-full bg-destructive p-0 text-[10px] text-destructive-foreground">3</Badge>
-        </Button>
+        <NotificationDropdown />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -73,6 +71,8 @@ export function Navbar({ onMenuClick, onToggleCollapse, collapsed }: Props) {
             <DropdownMenuItem onClick={() => {
               if (user?.role === "student") {
                 navigate({ to: "/student/profile" as any });
+              } else if (user?.role === "admin") {
+                navigate({ to: "/admin/profile" as any });
               }
             }}>
               <User className="mr-2 h-4 w-4" />

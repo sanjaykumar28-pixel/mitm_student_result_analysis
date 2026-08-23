@@ -21,6 +21,7 @@ import { Route as StudentAnalysisRouteImport } from './routes/student.analysis'
 import { Route as AdminViewResultsRouteImport } from './routes/admin.view-results'
 import { Route as AdminUploadExcelRouteImport } from './routes/admin.upload-excel'
 import { Route as AdminToppersRouteImport } from './routes/admin.toppers'
+import { Route as AdminProfileRouteImport } from './routes/admin.profile'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 import { Route as AdminAddSubjectRouteImport } from './routes/admin.add-subject'
 import { Route as AdminAddStudentRouteImport } from './routes/admin.add-student'
@@ -85,6 +86,11 @@ const AdminToppersRoute = AdminToppersRouteImport.update({
   path: '/toppers',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminProfileRoute = AdminProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/admin/add-student': typeof AdminAddStudentRoute
   '/admin/add-subject': typeof AdminAddSubjectRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/toppers': typeof AdminToppersRoute
   '/admin/upload-excel': typeof AdminUploadExcelRoute
   '/admin/view-results': typeof AdminViewResultsRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/admin/add-student': typeof AdminAddStudentRoute
   '/admin/add-subject': typeof AdminAddSubjectRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/toppers': typeof AdminToppersRoute
   '/admin/upload-excel': typeof AdminUploadExcelRoute
   '/admin/view-results': typeof AdminViewResultsRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/admin/add-student': typeof AdminAddStudentRoute
   '/admin/add-subject': typeof AdminAddSubjectRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/toppers': typeof AdminToppersRoute
   '/admin/upload-excel': typeof AdminUploadExcelRoute
   '/admin/view-results': typeof AdminViewResultsRoute
@@ -163,6 +172,7 @@ export interface FileRouteTypes {
     | '/admin/add-student'
     | '/admin/add-subject'
     | '/admin/dashboard'
+    | '/admin/profile'
     | '/admin/toppers'
     | '/admin/upload-excel'
     | '/admin/view-results'
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/admin/add-student'
     | '/admin/add-subject'
     | '/admin/dashboard'
+    | '/admin/profile'
     | '/admin/toppers'
     | '/admin/upload-excel'
     | '/admin/view-results'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/admin/add-student'
     | '/admin/add-subject'
     | '/admin/dashboard'
+    | '/admin/profile'
     | '/admin/toppers'
     | '/admin/upload-excel'
     | '/admin/view-results'
@@ -300,6 +312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminToppersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/profile': {
+      id: '/admin/profile'
+      path: '/profile'
+      fullPath: '/admin/profile'
+      preLoaderRoute: typeof AdminProfileRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/dashboard': {
       id: '/admin/dashboard'
       path: '/dashboard'
@@ -328,6 +347,7 @@ interface AdminRouteChildren {
   AdminAddStudentRoute: typeof AdminAddStudentRoute
   AdminAddSubjectRoute: typeof AdminAddSubjectRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminProfileRoute: typeof AdminProfileRoute
   AdminToppersRoute: typeof AdminToppersRoute
   AdminUploadExcelRoute: typeof AdminUploadExcelRoute
   AdminViewResultsRoute: typeof AdminViewResultsRoute
@@ -337,6 +357,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAddStudentRoute: AdminAddStudentRoute,
   AdminAddSubjectRoute: AdminAddSubjectRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminProfileRoute: AdminProfileRoute,
   AdminToppersRoute: AdminToppersRoute,
   AdminUploadExcelRoute: AdminUploadExcelRoute,
   AdminViewResultsRoute: AdminViewResultsRoute,
