@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { GraduationCap, X, type LucideIcon } from "lucide-react";
+import { X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface SidebarItem {
@@ -38,12 +38,14 @@ export function Sidebar({ items, collapsed, open, onClose }: Props) {
       >
         <div className="flex h-16 items-center justify-between gap-2 border-b px-4">
           <Link to="/" className="flex min-w-0 items-center gap-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-sm">
-              <GraduationCap className="h-5 w-5" />
-            </div>
+           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-white shadow-sm">
+             <img src="/images/logo.jpeg"
+             alt="College Logo"
+             className="h-full w-full object-contain"/>
+             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">EduMetric</p>
+                <p className="truncate text-sm font-semibold">MITMYSORE</p>
                 <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
                   Result Analytics
                 </p>
