@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { gradePoint, type Grade } from "@/data/mockData";
 import { toast } from "sonner";
 import { studentService, type StudentSemesterResult, type StudentDashboardResponse } from "@/services/studentService";
 import { getApiErrorMessage } from "@/services/api";
@@ -50,7 +49,7 @@ function StudentResults() {
 
   const subjects = semData ? semData.subjects : [];
   const totalCreditsReg = subjects.reduce((a, s) => a + (s.credits || 0), 0);
-  const totalCreditsEar = semData?.credits_earned ?? subjects.reduce((a, s) => a + (s.grade !== 'F' ? (s.credits || 0) : 0), 0);
+  const totalCreditsEar = semData?.credits_earned ?? subjects.reduce((a, s) => a + (s.credits_earned || 0), 0);
 
   const handlePrint = () => {
     window.print();
@@ -183,20 +182,18 @@ function StudentResults() {
               </thead>
               <tbody>
                 {subjects.map((s, idx) => {
-                  const gp = s.grade && s.grade in gradePoint ? gradePoint[s.grade as Grade] : "—";
-                  const creditsEar = s.grade !== "F" ? s.credits : 0;
                   return (
                     <tr key={s.code}>
                       <td className="border border-black p-2 text-center">{idx + 1}</td>
                       <td className="border border-black p-2 text-center font-mono">{s.code}</td>
                       <td className="border border-black p-2 text-left uppercase whitespace-pre-wrap leading-tight">{s.name}</td>
-                      <td className="border border-black p-2 text-center">—</td>
-                      <td className="border border-black p-2 text-center">—</td>
-                      <td className="border border-black p-2 text-center">{s.marks}</td>
-                      <td className="border border-black p-2 text-center">{gp}</td>
+                      <td className="border border-black p-2 text-center">{s.cia}</td>
+                      <td className="border border-black p-2 text-center">{s.see}</td>
+                      <td className="border border-black p-2 text-center">{s.total}</td>
+                      <td className="border border-black p-2 text-center">{s.grade_point ?? "—"}</td>
                       <td className="border border-black p-2 text-center font-bold">{s.grade || "—"}</td>
                       <td className="border border-black p-2 text-center">{s.credits || "—"}</td>
-                      <td className="border border-black p-2 text-center">{creditsEar || "—"}</td>
+                      <td className="border border-black p-2 text-center">{s.credits_earned ?? "—"}</td>
                     </tr>
                   );
                 })}

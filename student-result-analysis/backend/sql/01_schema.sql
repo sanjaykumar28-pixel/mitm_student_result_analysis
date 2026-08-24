@@ -125,13 +125,4 @@ CREATE INDEX idx_students_dept_sem ON Students (department, semester);
 CREATE INDEX idx_marks_semester ON Student_Marks (semester);
 CREATE INDEX idx_result_semester ON Student_Result (semester);
 
--- Subject codes from the sample sheet (1st semester MCA). Names/credits unknown.
-INSERT INTO Subjects (subject_code, subject_name, credits, semester) VALUES
-    ('M24MCA101', NULL, NULL, 1),
-    ('M24MCA102', NULL, NULL, 1),
-    ('M24MCA103', NULL, NULL, 1),
-    ('M24MCA104', NULL, NULL, 1),
-    ('M24MCA105', NULL, NULL, 1),
-    ('M24MCA108', NULL, NULL, 1),
-    ('M24MCAL106', NULL, NULL, 1),
-    ('M24MCAL107', NULL, NULL, 1);
+
