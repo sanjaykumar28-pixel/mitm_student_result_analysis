@@ -105,6 +105,8 @@ class ImportStudentPreview(BaseModel):
     name: str
     grand_total: float
     average_marks: float
+    credits_registered: int
+    credits_earned: int
     sgpa: float
     cgpa: float
 
@@ -162,7 +164,10 @@ class StudentSubjectMark(BaseModel):
     code: str
     name: str
     credits: int | None = None
-    marks: float
+    marks: float | None = None
+    internal_marks: float | None = None
+    external_marks: float | None = None
+    total_marks: float | None = None
     grade: str | None = None
 
 
@@ -215,6 +220,7 @@ class StudentGpaSemester(BaseModel):
     semester: int
     sgpa: float | None = None
     credits: int
+    credits_earned: int = 0
     subjects: list[StudentGpaSubject]
 
 

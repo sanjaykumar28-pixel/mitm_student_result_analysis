@@ -190,9 +190,9 @@ function StudentResults() {
                       <td className="border border-black p-2 text-center">{idx + 1}</td>
                       <td className="border border-black p-2 text-center font-mono">{s.code}</td>
                       <td className="border border-black p-2 text-left uppercase whitespace-pre-wrap leading-tight">{s.name}</td>
-                      <td className="border border-black p-2 text-center">—</td>
-                      <td className="border border-black p-2 text-center">—</td>
-                      <td className="border border-black p-2 text-center">{s.marks}</td>
+                      <td className="border border-black p-2 text-center">{s.internal_marks ?? "—"}</td>
+                      <td className="border border-black p-2 text-center">{s.external_marks ?? "—"}</td>
+                      <td className="border border-black p-2 text-center">{s.total_marks ?? s.marks ?? "—"}</td>
                       <td className="border border-black p-2 text-center">{gp}</td>
                       <td className="border border-black p-2 text-center font-bold">{s.grade || "—"}</td>
                       <td className="border border-black p-2 text-center">{s.credits || "—"}</td>

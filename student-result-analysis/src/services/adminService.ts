@@ -33,6 +33,8 @@ export interface ImportStudentPreview {
   name: string;
   grand_total: number;
   average_marks: number;
+  credits_registered: number;
+  credits_earned: number;
   sgpa: number;
   cgpa: number;
 }

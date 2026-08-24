@@ -4,7 +4,10 @@ export interface StudentSubjectMark {
   code: string;
   name: string;
   credits: number | null;
-  marks: number;
+  marks: number | null;
+  internal_marks: number | null;
+  external_marks: number | null;
+  total_marks: number | null;
   grade: string | null;
 }
 
@@ -52,6 +55,7 @@ export interface StudentGpaSemester {
   semester: number;
   sgpa: number | null;
   credits: number;
+  credits_earned: number;
   subjects: StudentGpaSubject[];
 }
 

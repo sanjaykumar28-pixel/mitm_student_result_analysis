@@ -22,7 +22,7 @@ from app.schemas import (
     StudentSubjectMark,
     StudentSubjectScore,
 )
-from app.services.grading import GRADE_POINTS, default_credits, letter_grade
+from app.services.grading import GRADE_POINTS, letter_grade
 
 
 def _as_float(value) -> float | None:
@@ -136,7 +136,10 @@ def _subject_mark(mark: StudentMark, subject: Subject | None) -> StudentSubjectM
         code=mark.subject_code,
         name=name or mark.subject_code,
         credits=credits,
-        marks=_as_float(mark.total_marks) or 0,
+        marks=_as_float(mark.total_marks),
+        internal_marks=_as_float(mark.internal_marks),
+        external_marks=_as_float(mark.external_marks),
+        total_marks=_as_float(mark.total_marks),
         grade=mark.grade,
     )
 
@@ -226,7 +229,7 @@ def get_student_dashboard(db: Session, *, usn: str, email: str) -> StudentDashbo
 def _resolved_credits(mark: StudentMark, subject: Subject | None) -> int:
     if subject is not None and subject.credits:
         return int(subject.credits)
-    return default_credits(mark.subject_code)
+    return 0
 
 
 def _resolved_grade(mark: StudentMark) -> str | None:
@@ -267,19 +270,22 @@ def _computed_gpa_semesters(db: Session, usn: str) -> list[StudentGpaSemester]:
     semesters: list[StudentGpaSemester] = []
     for semester in sorted(grouped):
         subjects = grouped[semester]
-        registered = 0
+        registered = sum(item.credits for item in subjects)
+        earned = 0
         points = 0.0
         for item in subjects:
             if item.grade_point is None:
                 continue
-            registered += item.credits
             points += item.credits * item.grade_point
+            if item.grade != "F":
+                earned += item.credits
         sgpa = round(points / registered, 2) if registered else None
         semesters.append(
             StudentGpaSemester(
                 semester=semester,
                 sgpa=sgpa,
                 credits=registered,
+                credits_earned=earned,
                 subjects=subjects,
             )
         )
@@ -287,16 +293,15 @@ def _computed_gpa_semesters(db: Session, usn: str) -> list[StudentGpaSemester]:
 
 
 def _overall_cgpa(semesters: list[StudentGpaSemester]) -> float | None:
-    weighted = 0.0
-    credits = 0
-    latest = None
-    for row in semesters:
-        if row.sgpa is None or row.credits <= 0:
-            continue
-        weighted += row.sgpa * row.credits
-        credits += row.credits
-        latest = round(weighted / credits, 2)
-    return latest
+    total_points = 0.0
+    total_credits = 0
+    for semester in semesters:
+        for subject in semester.subjects:
+            if subject.grade_point is None or subject.credits <= 0:
+                continue
+            total_points += subject.credits * subject.grade_point
+            total_credits += subject.credits
+    return round(total_points / total_credits, 2) if total_credits else None
 
 
 def get_student_sgpa_cgpa(db: Session, *, usn: str) -> StudentSgpaCgpaResponse:

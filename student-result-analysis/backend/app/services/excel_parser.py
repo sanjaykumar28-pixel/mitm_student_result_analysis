@@ -340,6 +340,19 @@ def parse_result_workbook(content: bytes, filename: str) -> ParsedWorkbook:
         )
 
     errors: list[ImportErrorItem] = []
+    subject_positions: dict[str, int] = {}
+    for subject in subjects:
+        if subject.code in subject_positions:
+            errors.append(
+                ImportErrorItem(
+                    header_idx + 1,
+                    None,
+                    subject.code,
+                    f"Duplicate subject code in header (also detected at column {subject_positions[subject.code] + 1})",
+                )
+            )
+        else:
+            subject_positions[subject.code] = subject.ia_col
     students: list[ParsedStudent] = []
     seen_usn: dict[str, int] = {}
 
@@ -350,6 +363,7 @@ def parse_result_workbook(content: bytes, filename: str) -> ParsedWorkbook:
         if not usn and not name:
             continue
         if not USN_RE.match(usn):
+            errors.append(ImportErrorItem(excel_row, usn or None, None, "Invalid or missing USN"))
             continue
         if not name:
             errors.append(ImportErrorItem(excel_row, usn, None, "Missing student name"))

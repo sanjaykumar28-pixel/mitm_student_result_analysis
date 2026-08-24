@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.models import Student, StudentMark, StudentResult, Subject
 from app.schemas import ImportErrorItemSchema, ImportStudentPreview, ImportUploadResponse
 from app.services.excel_parser import ImportErrorItem, ParsedWorkbook
-from app.services.grading import default_credits, subject_result
+from app.services.grading import subject_result
 
 
 def _error_payload(errors: list[ImportErrorItem]) -> list[ImportErrorItemSchema]:
@@ -13,6 +13,14 @@ def _error_payload(errors: list[ImportErrorItem]) -> list[ImportErrorItemSchema]
         ImportErrorItemSchema(row=e.row, usn=e.usn, subject=e.subject, error=e.error)
         for e in errors
     ]
+
+
+class ImportValidationError(Exception):
+    def __init__(self, message: str, errors: list[ImportErrorItem]):
+        super().__init__(message)
+        self.message = message
+        self.errors = errors
+        self.payload = _error_payload(errors)
 
 
 def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUploadResponse:
@@ -25,34 +33,63 @@ def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUpload
     semester = parsed.semester
     department = parsed.department
     academic_year = parsed.academic_year
-    subjects_upserted = 0
     students_upserted = 0
     marks_upserted = 0
     results_upserted = 0
     preview: list[ImportStudentPreview] = []
 
     try:
-        credit_by_code: dict[str, int] = {}
+        subject_errors: list[ImportErrorItem] = []
+        subject_by_code: dict[str, Subject] = {}
         for subject_col in parsed.subjects:
             subject = db.query(Subject).filter(Subject.subject_code == subject_col.code).first()
-            credits = default_credits(subject_col.code)
             if subject is None:
-                subject = Subject(
-                    subject_code=subject_col.code,
-                    subject_name=None,
-                    credits=credits,
-                    semester=semester,
-                    department=department,
+                message = (
+                    f"Upload failed: Subject {subject_col.code} is not available in the "
+                    f"Subjects table for {department} Semester {semester}."
                 )
-                db.add(subject)
-                subjects_upserted += 1
+            elif subject.department is None or subject.department.strip().casefold() != department.strip().casefold():
+                message = (
+                    f"Subject {subject_col.code} belongs to department {subject.department}, "
+                    f"not {department}."
+                )
+            elif subject.semester != semester:
+                message = (
+                    f"Subject {subject_col.code} is configured for Semester {subject.semester}, "
+                    f"not Semester {semester}."
+                )
+            elif subject.credits is None or int(subject.credits) <= 0:
+                message = f"Subject {subject_col.code} has no valid credits configured."
             else:
-                if subject.credits is None:
-                    subject.credits = credits
-                subjects_upserted += 1
-            credit_by_code[subject_col.code] = int(subject.credits or credits)
+                subject_by_code[subject_col.code] = subject
+                continue
 
-        db.flush()
+            subject_errors.append(
+                ImportErrorItem(row=1, usn=None, subject=subject_col.code, error=message)
+            )
+
+        if subject_errors:
+            raise ImportValidationError(
+                f"Upload failed. The following subjects are not configured for {department} Semester {semester}",
+                subject_errors,
+            )
+
+        identity_errors: list[ImportErrorItem] = []
+        for row in parsed.students:
+            existing_student = db.query(Student).filter(Student.usn == row.usn).first()
+            if existing_student and existing_student.student_name.strip().casefold() != row.name.strip().casefold():
+                identity_errors.append(
+                    ImportErrorItem(
+                        row.row,
+                        row.usn,
+                        None,
+                        f"Student name does not match existing record '{existing_student.student_name}'",
+                    )
+                )
+        if identity_errors:
+            raise ImportValidationError("Import rejected because student identity checks failed", identity_errors)
+
+        credit_by_code = {code: int(subject.credits) for code, subject in subject_by_code.items()}
 
         for row in parsed.students:
             student = db.query(Student).filter(Student.usn == row.usn).first()
@@ -66,7 +103,6 @@ def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUpload
                 )
                 db.add(student)
             else:
-                student.student_name = row.name
                 student.department = department
                 student.semester = semester
                 if row.slno is not None:
@@ -115,36 +151,23 @@ def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUpload
                     existing.grade = grade
                 marks_upserted += 1
 
-            subject_count = len(row.marks)
-            average = round(grand_total / subject_count, 2) if subject_count else 0.0
+            average = round(grand_total / len(row.marks), 2) if row.marks else 0.0
             sgpa = round(weighted_points / registered_credits, 2) if registered_credits else 0.0
             overall_grade, _, _ = subject_result(average, 4)
-
             result = (
                 db.query(StudentResult)
                 .filter(StudentResult.usn == row.usn, StudentResult.semester == semester)
                 .first()
             )
             if result is None:
-                result = StudentResult(
-                    usn=row.usn,
-                    semester=semester,
-                    academic_year=academic_year,
-                    grand_total=round(grand_total, 2),
-                    average_marks=average,
-                    credits_earned=earned_credits,
-                    grade=overall_grade,
-                    sgpa=sgpa,
-                    cgpa=sgpa,
-                )
+                result = StudentResult(usn=row.usn, semester=semester)
                 db.add(result)
-            else:
-                result.academic_year = academic_year
-                result.grand_total = round(grand_total, 2)
-                result.average_marks = average
-                result.credits_earned = earned_credits
-                result.grade = overall_grade
-                result.sgpa = sgpa
+            result.academic_year = academic_year
+            result.grand_total = round(grand_total, 2)
+            result.average_marks = average
+            result.credits_earned = earned_credits
+            result.grade = overall_grade
+            result.sgpa = sgpa
             results_upserted += 1
             db.flush()
 
@@ -156,6 +179,8 @@ def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUpload
                     name=row.name,
                     grand_total=round(grand_total, 2),
                     average_marks=average,
+                    credits_registered=registered_credits,
+                    credits_earned=earned_credits,
                     sgpa=sgpa,
                     cgpa=cgpa,
                 )
@@ -168,7 +193,7 @@ def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUpload
 
     return ImportUploadResponse(
         students_upserted=students_upserted,
-        subjects_upserted=subjects_upserted,
+        subjects_upserted=0,
         marks_upserted=marks_upserted,
         results_upserted=results_upserted,
         department=department,
@@ -181,15 +206,15 @@ def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUpload
 
 
 def _registered_credits(db: Session, usn: str, semester: int) -> int:
-    marks = (
-        db.query(StudentMark)
-        .filter(StudentMark.usn == usn, StudentMark.semester == semester)
-        .all()
-    )
+    marks = db.query(StudentMark).filter(
+        StudentMark.usn == usn,
+        StudentMark.semester == semester,
+    ).all()
     total = 0
     for mark in marks:
         subject = db.query(Subject).filter(Subject.subject_code == mark.subject_code).first()
-        total += int(subject.credits) if subject and subject.credits else default_credits(mark.subject_code)
+        if subject and subject.credits:
+            total += int(subject.credits)
     return total
 
 
@@ -214,11 +239,3 @@ def _recompute_cgpa(db: Session, usn: str) -> float:
         latest = round(weighted / credits, 2)
         row.cgpa = latest
     return latest
-
-
-class ImportValidationError(Exception):
-    def __init__(self, message: str, errors: list[ImportErrorItem]):
-        super().__init__(message)
-        self.message = message
-        self.errors = errors
-        self.payload = _error_payload(errors)

@@ -72,7 +72,7 @@ function UploadExcel() {
       setProgress(100);
       setResult(data);
       toast.success(
-        `Imported ${data.students_upserted} students, ${data.subjects_upserted} subjects, ${data.marks_upserted} mark rows, ${data.results_upserted} results.`,
+        `Imported ${data.students_upserted} students and ${data.marks_upserted} mark rows. Credits were read from the Subjects table.`,
       );
     } catch (error) {
       setProgress(0);
@@ -199,6 +199,8 @@ function UploadExcel() {
             <Badge variant="secondary">{result.subjects_upserted} subjects</Badge>
             <Badge variant="secondary">{result.marks_upserted} mark rows</Badge>
             <Badge variant="secondary">{result.results_upserted} results</Badge>
+            <Badge variant="secondary">{result.students.reduce((sum, student) => sum + student.credits_registered, 0)} credits registered</Badge>
+            <Badge variant="secondary">{result.students.reduce((sum, student) => sum + student.credits_earned, 0)} credits earned</Badge>
             <Badge variant="outline">{result.department} · Sem {result.semester}</Badge>
             {result.academic_year && <Badge variant="outline">{result.academic_year}</Badge>}
           </div>
@@ -213,6 +215,7 @@ function UploadExcel() {
                   <TableHead>Name</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead className="text-right">Avg</TableHead>
+                  <TableHead className="text-right">Credits</TableHead>
                   <TableHead className="text-right">SGPA</TableHead>
                   <TableHead className="text-right">CGPA</TableHead>
                 </TableRow>
@@ -224,6 +227,7 @@ function UploadExcel() {
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell className="text-right">{s.grand_total}</TableCell>
                     <TableCell className="text-right">{s.average_marks}</TableCell>
+                    <TableCell className="text-right">{s.credits_earned}/{s.credits_registered}</TableCell>
                     <TableCell className="text-right">{s.sgpa.toFixed(2)}</TableCell>
                     <TableCell className="text-right">{s.cgpa.toFixed(2)}</TableCell>
                   </TableRow>
