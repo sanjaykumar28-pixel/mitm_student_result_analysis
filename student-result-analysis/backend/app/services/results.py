@@ -128,20 +128,16 @@ def list_admin_toppers(db: Session) -> AdminToppersResponse:
 
 def _subject_mark(mark: StudentMark, subject: Subject | None) -> StudentSubjectMark:
     name = None
-    credits = _resolved_credits(mark, subject)
+    credits = None
     if subject is not None:
         name = subject.subject_name
+        credits = subject.credits
     return StudentSubjectMark(
         code=mark.subject_code,
         name=name or mark.subject_code,
         credits=credits,
-        credits_earned=credits if mark.grade != "F" else 0,
-        cia=_as_float(mark.internal_marks) or 0,
-        see=_as_float(mark.external_marks) or 0,
-        total=_as_float(mark.total_marks) or 0,
         marks=_as_float(mark.total_marks) or 0,
         grade=mark.grade,
-        grade_point=GRADE_POINTS.get(mark.grade) if mark.grade else None,
     )
 
 
@@ -262,10 +258,6 @@ def _computed_gpa_semesters(db: Session, usn: str) -> list[StudentGpaSemester]:
                 code=mark.subject_code,
                 name=name or mark.subject_code,
                 credits=credits,
-                credits_earned=credits if grade != "F" else 0,
-                cia=_as_float(mark.internal_marks) or 0,
-                see=_as_float(mark.external_marks) or 0,
-                total=_as_float(mark.total_marks) or 0,
                 marks=_as_float(mark.total_marks) or 0,
                 grade=grade,
                 grade_point=GRADE_POINTS.get(grade) if grade else None,

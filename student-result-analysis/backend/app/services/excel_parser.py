@@ -205,7 +205,7 @@ def _find_col(row: list[Any], *names: str) -> int | None:
 
 
 def _is_ia(value: Any) -> bool:
-    return _cell_upper(value) in {"IA", "CIA", "CIE", "INTERNAL"}
+    return _cell_upper(value) in {"IA", "CIE", "INTERNAL"}
 
 
 def _is_ext(value: Any) -> bool:

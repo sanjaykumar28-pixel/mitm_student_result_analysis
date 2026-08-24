@@ -162,13 +162,8 @@ class StudentSubjectMark(BaseModel):
     code: str
     name: str
     credits: int | None = None
-    credits_earned: int | None = None
-    cia: float
-    see: float
-    total: float
     marks: float
     grade: str | None = None
-    grade_point: int | None = None
 
 
 class StudentSemesterResult(BaseModel):
@@ -211,10 +206,6 @@ class StudentGpaSubject(BaseModel):
     code: str
     name: str
     credits: int
-    credits_earned: int
-    cia: float
-    see: float
-    total: float
     marks: float
     grade: str | None = None
     grade_point: int | None = None
