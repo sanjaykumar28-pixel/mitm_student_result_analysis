@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, Search, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -84,10 +84,8 @@ function ViewResults() {
   const safePage = Math.min(page, totalPages);
   const pageData = results.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  // Handle deletion — remove from local state so UI updates instantly
-  const handleDeleted = useCallback((resultId: number) => {
-    setResults((prev) => prev.filter((r) => r.result_id !== resultId));
-  }, []);
+  // Handle deletion — no longer used (Edit/Delete replaced by View More)
+  // Kept as no-op to avoid breaking any existing usages
 
   // Export handler
   const handleExport = () => {
@@ -230,15 +228,12 @@ function ViewResults() {
               <Skeleton className="h-5 w-24 hidden md:block" />
               <Skeleton className="h-4 w-6 mx-auto" />
               <Skeleton className="h-6 w-14 rounded-full mx-auto" />
-              <div className="flex gap-1.5 mx-auto">
-                <Skeleton className="h-7 w-7 rounded" />
-                <Skeleton className="h-7 w-7 rounded" />
-              </div>
+              <Skeleton className="h-7 w-20 rounded mx-auto" />
             </div>
           ))}
         </div>
       ) : (
-        <ViewResultsTable results={pageData} onDeleted={handleDeleted} />
+        <ViewResultsTable results={pageData} />
       )}
 
       {/* ── Pagination ── */}

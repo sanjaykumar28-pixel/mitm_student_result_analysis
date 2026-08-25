@@ -27,6 +27,15 @@ export interface AddSubjectPayload {
   department: string;
 }
 
+export interface AddSubjectResponse {
+  subject_id: number;
+  subject_name: string | null;
+  subject_code: string;
+  credit: number | null;
+  semester: number;
+  department: string | null;
+}
+
 
 export interface ImportStudentPreview {
   usn: string;
@@ -93,7 +102,7 @@ export const adminService = {
     api.post<AddStudentResponse>("/admin/students", data).then((r) => r.data),
   addSubject: (data: AddSubjectPayload) =>
     // REQUIRED FROM BACKEND: POST /admin/subjects endpoint
-    api.post("/admin/subjects", data).then((r) => r.data),
+    api.post<AddSubjectResponse>("/admin/subjects", data).then((r) => r.data),
   uploadExcel: (file: File, onProgress?: (percent: number) => void) => {
     const form = new FormData();
     form.append("file", file);
