@@ -183,7 +183,6 @@ function SgpaCgpa() {
                       <th className="h-10 px-4 text-left font-medium align-middle">Internal (CIE)</th>
                       <th className="h-10 px-4 text-left font-medium align-middle">Predicted External (SEE)</th>
                       <th className="h-10 px-4 text-left font-medium align-middle">Total</th>
-                      <th className="h-10 px-4 text-left font-medium align-middle">Percentage</th>
                       <th className="h-10 px-4 text-left font-medium align-middle">Grade Point</th>
                       <th className="h-10 px-4 text-left font-medium align-middle">Grade</th>
                       <th className="h-10 px-4 text-left font-medium align-middle"></th>
@@ -192,7 +191,7 @@ function SgpaCgpa() {
                   <tbody>
                     {loaded && computedRows.length === 0 ? (
                       <tr>
-                        <td colSpan={11} className="py-6 text-center text-sm text-muted-foreground">
+                        <td colSpan={10} className="py-6 text-center text-sm text-muted-foreground">
                           No subjects available. Add a subject to start predicting.
                         </td>
                       </tr>
@@ -239,7 +238,6 @@ function SgpaCgpa() {
                             />
                           </td>
                           <td className="p-4 align-middle font-medium">{r.total}</td>
-                          <td className="p-4 align-middle">{r.percentage.toFixed(1)}%</td>
                           <td className="p-4 align-middle">{r.gp}</td>
                           <td className="p-4 align-middle">
                             <Badge variant={r.grade === "F" ? "destructive" : "outline"} className={r.grade !== "F" ? "bg-primary/5 border-primary/20" : ""}>

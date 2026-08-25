@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,6 +31,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 function AddStudent() {
+  const [addedStudents, setAddedStudents] = useState<any[]>([]);
   const {
     register,
     handleSubmit,
@@ -50,6 +52,16 @@ function AddStudent() {
         password: data.password,
       });
       toast.success(`${created.name} (${created.usn}) can now sign in as a student.`);
+      setAddedStudents((prev) => [
+        {
+          usn: data.studentId,
+          name: data.name,
+          email: data.email,
+          department: data.department,
+          semester: data.semester,
+        },
+        ...prev,
+      ]);
       reset();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Could not add student."));
@@ -116,6 +128,46 @@ function AddStudent() {
           </form>
         </CardContent>
       </Card>
+
+      <div className="mt-8 max-w-3xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Student List</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {addedStudents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No students added yet.</p>
+            ) : (
+              <div className="rounded-md border overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b bg-muted/50 text-muted-foreground">
+                    <tr>
+                      <th className="h-10 px-4 text-left font-medium">#</th>
+                      <th className="h-10 px-4 text-left font-medium">Student ID</th>
+                      <th className="h-10 px-4 text-left font-medium">Full Name</th>
+                      <th className="h-10 px-4 text-left font-medium">Email</th>
+                      <th className="h-10 px-4 text-left font-medium">Department</th>
+                      <th className="h-10 px-4 text-left font-medium">Semester</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {addedStudents.map((student, index) => (
+                      <tr key={index} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                        <td className="p-4 align-middle">{index + 1}</td>
+                        <td className="p-4 align-middle font-medium">{student.usn}</td>
+                        <td className="p-4 align-middle">{student.name}</td>
+                        <td className="p-4 align-middle text-muted-foreground">{student.email}</td>
+                        <td className="p-4 align-middle">{student.department}</td>
+                        <td className="p-4 align-middle">{student.semester}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </>
   );
 }

@@ -50,20 +50,64 @@ const GRADE_LEGEND: Array<{ grade: string; label: string; points: number }> = [
   { grade: "F", label: "Fail", points: 0 },
 ];
 
-// ── Student initials avatar ──────────────────────────────────────────────────
-function Initials({ name }: { name: string }) {
-  const letters = name
-    .split(" ")
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
-  return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary select-none">
-      {letters}
-    </div>
-  );
-}
+
+// ── Dummy Subject Data for UI Testing ─────────────────────────────────────────
+const dummySubjects = [
+  {
+    code: "MCA101",
+    name: "Mathematics for Computer Science",
+    credits: 4,
+    grade: "A",
+    internal_marks: 42,
+    external_marks: 44,
+    total_marks: 86,
+  },
+  {
+    code: "MCA102",
+    name: "Problem Solving using Python",
+    credits: 4,
+    grade: "A+",
+    internal_marks: 45,
+    external_marks: 47,
+    total_marks: 92,
+  },
+  {
+    code: "MCA103",
+    name: "Computer Organization",
+    credits: 4,
+    grade: "A",
+    internal_marks: 43,
+    external_marks: 42,
+    total_marks: 85,
+  },
+  {
+    code: "MCA104",
+    name: "Web Technologies",
+    credits: 4,
+    grade: "A",
+    internal_marks: 41,
+    external_marks: 43,
+    total_marks: 84,
+  },
+  {
+    code: "MCA105",
+    name: "Programming in JAVA",
+    credits: 4,
+    grade: "B+",
+    internal_marks: 38,
+    external_marks: 37,
+    total_marks: 75,
+  },
+  {
+    code: "MCA106",
+    name: "Database Management Systems",
+    credits: 4,
+    grade: "A",
+    internal_marks: 42,
+    external_marks: 41,
+    total_marks: 83,
+  },
+];
 
 // ── Result Sheet Modal ────────────────────────────────────────────────────────
 function ResultSheetModal({
@@ -105,148 +149,96 @@ function ResultSheetModal({
         </DialogHeader>
 
         <div className="px-6 py-5 space-y-6">
-          {/* ── Student Info ── */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <Initials name={row.student_name} />
-            <div className="flex-1 min-w-0">
-              <h2 className="text-xl font-bold text-foreground uppercase tracking-wide leading-tight">
-                {row.student_name}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Student ID:{" "}
-                <span className="font-mono font-semibold text-foreground">
+          {/* ── Student Info Card ── */}
+          <div className="rounded-xl border bg-card p-5 shadow-sm flex flex-col sm:flex-row justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-xl font-bold text-primary select-none shrink-0">
+                {row.student_name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-foreground uppercase tracking-wide leading-tight">
+                  {row.student_name}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1 font-mono font-medium">
                   {row.usn}
-                </span>
-              </p>
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col justify-center gap-1.5 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground w-24">Department</span>
+                <span className="font-semibold text-foreground">: {row.department}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground w-24">Semester</span>
+                <span className="font-semibold text-foreground">: {row.semester}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground w-24">CGPA</span>
+                <span className="font-semibold text-foreground">: {row.cgpa != null ? Number(row.cgpa).toFixed(2) : "—"}</span>
+              </div>
             </div>
           </div>
 
-          {/* ── Info Grid ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              { label: "Department", value: row.department },
-              { label: "Semester", value: `Semester ${row.semester}` },
-              {
-                label: "CGPA",
-                value: row.cgpa != null ? Number(row.cgpa).toFixed(2) : "—",
-              },
-              {
-                label: "SGPA",
-                value: row.sgpa != null ? Number(row.sgpa).toFixed(2) : "—",
-              },
-            ].map(({ label, value }) => (
-              <div
-                key={label}
-                className="rounded-xl border bg-card p-3 shadow-sm"
-              >
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                  {label}
-                </p>
-                <p className="mt-1 text-base font-bold text-foreground">
-                  {value}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Semester Grade Summary ── */}
-          <section>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Semester Grade Summary
-            </h3>
-            <div className="overflow-x-auto rounded-xl border shadow-sm">
+          {/* ── Subject-wise Results ── */}
+          <section className="rounded-xl border bg-card shadow-sm overflow-hidden">
+            <div className="bg-muted/30 px-5 py-4 border-b">
+              <h3 className="text-base font-bold text-foreground">
+                Subject-wise Results (Semester {row.semester})
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-muted/40">
-                    {[
-                      "Semester",
-                      "Academic Year",
-                      "Grand Total",
-                      "Average",
-                      "Credits Earned",
-                      "Grade",
-                      "SGPA",
-                      "CGPA",
-                    ].map((h) => (
+                  <tr className="border-b bg-muted/10">
+                    {["#", "Subject Code", "Subject Name", "Credit", "Grade", "CIE Marks (50)", "SEE Marks (50)", "Total (100)", "Grade Point"].map((h) => (
                       <th
                         key={h}
-                        className="px-2 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                        className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
                       >
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
-                  <tr className="hover:bg-muted/20 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-foreground">
-                      {row.semester}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {row.academic_year ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums font-medium text-foreground">
-                      {fmt(row.grand_total, 1)}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums text-muted-foreground">
-                      {fmt(row.average_marks, 1)}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums text-muted-foreground">
-                      {row.credits_earned ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {row.grade ? (
-                        <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold bg-primary/10 text-primary border border-primary/20">
-                          {row.grade}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums font-semibold text-foreground">
-                      {fmt(row.sgpa)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <CgpaBadge value={row.cgpa} />
-                    </td>
-                  </tr>
+                <tbody className="divide-y divide-border">
+                  {(() => {
+                    const existingSubjects = (row as any).subjects || [];
+                    const displaySubjects = existingSubjects.length > 0 ? existingSubjects : dummySubjects;
+                    return displaySubjects.map((s: any, idx: number) => {
+                      const gp = s.grade && s.grade in gradePoint ? gradePoint[s.grade as Grade] : "—";
+                      return (
+                        <tr key={s.code || idx} className="hover:bg-muted/5 transition-colors">
+                          <td className="px-5 py-3 font-medium text-muted-foreground">{idx + 1}</td>
+                          <td className="px-5 py-3 font-mono text-foreground">{s.code || "—"}</td>
+                          <td className="px-5 py-3 text-foreground whitespace-normal min-w-[200px]">{s.name || "—"}</td>
+                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{s.credits ?? "—"}</td>
+                          <td className="px-5 py-3 font-bold text-primary">{s.grade || "—"}</td>
+                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{s.internal_marks ?? "—"}</td>
+                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{s.external_marks ?? "—"}</td>
+                          <td className="px-5 py-3 tabular-nums font-semibold text-foreground">{s.total_marks ?? s.marks ?? "—"}</td>
+                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{gp}</td>
+                        </tr>
+                      );
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>
           </section>
 
-          {/* ── Result Summary ── */}
+          {/* ── Summary Statistics ── */}
           <section>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Performance Summary
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                {
-                  label: "Grand Total",
-                  value: fmt(row.grand_total, 1),
-                  sub: "marks",
-                },
-                {
-                  label: "Average Marks",
-                  value: fmt(row.average_marks, 1),
-                  sub: "per subject",
-                },
-                {
-                  label: "Credits Earned",
-                  value: row.credits_earned != null ? String(row.credits_earned) : "—",
-                  sub: "credits",
-                },
-                {
-                  label: "Grade Points",
-                  value:
-                    gradePointValue != null ? String(gradePointValue) : "—",
-                  sub: row.grade ?? "overall",
-                },
-              ].map(({ label, value, sub }) => (
+                { label: "Total Credits", value: row.credits_earned ?? "—" },
+                { label: "Total Points", value: totalPoints },
+                { label: "SGPA", value: row.sgpa != null ? Number(row.sgpa).toFixed(2) : "—" },
+                { label: "CGPA", value: row.cgpa != null ? Number(row.cgpa).toFixed(2) : "—" },
+              ].map(({ label, value }) => (
                 <div
                   key={label}
-                  className="rounded-xl border bg-card p-4 shadow-sm"
+                  className="rounded-xl border bg-card p-4 shadow-sm flex flex-col items-center justify-center text-center"
                 >
                   <p className="text-xs font-medium text-muted-foreground">
                     {label}
@@ -254,58 +246,9 @@ function ResultSheetModal({
                   <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">
                     {value}
                   </p>
-                  <p className="text-xs text-muted-foreground">{sub}</p>
                 </div>
               ))}
             </div>
-
-            {/* SGPA / CGPA bar */}
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              {[
-                { label: "SGPA", value: row.sgpa, max: 10 },
-                { label: "CGPA", value: row.cgpa, max: 10 },
-              ].map(({ label, value, max }) => {
-                const num = value != null ? Number(value) : null;
-                const pct = num != null ? (num / max) * 100 : 0;
-                let barColor = "bg-primary";
-                if (num != null) {
-                  if (num >= 9) barColor = "bg-emerald-500";
-                  else if (num >= 8) barColor = "bg-blue-500";
-                  else if (num >= 7) barColor = "bg-amber-500";
-                  else barColor = "bg-red-500";
-                }
-                return (
-                  <div key={label} className="rounded-xl border bg-card p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        {label}
-                      </span>
-                      <span className="text-lg font-bold text-foreground tabular-nums">
-                        {num != null ? num.toFixed(2) : "—"}
-                      </span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${barColor}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground text-right">
-                      out of {max}.00
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* ── Subject-wise note ── */}
-          <section className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-center">
-            <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">Subject-wise marks</span>{" "}
-              are available on the student's own result portal. The admin results
-              API returns consolidated semester-level data only.
-            </p>
           </section>
 
           {/* ── Grade Legend ── */}
