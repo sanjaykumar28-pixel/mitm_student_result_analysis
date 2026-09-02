@@ -10,8 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { getAuthErrorMessage, useAuth, type UserRole } from "@/context/AuthContext";
 
 export const Route = createFileRoute("/login")({
@@ -136,12 +135,7 @@ function LoginPage() {
             Access your dashboard with your valid credentials.
           </p>
 
-          <Tabs value={role} onValueChange={(v) => setRole(v as UserRole)} className="mt-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="student">Student</TabsTrigger>
-              <TabsTrigger value="admin">Admin</TabsTrigger>
-            </TabsList>
-          </Tabs>
+
 
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
             <div className="space-y-1.5">
@@ -187,16 +181,10 @@ function LoginPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Signing in…" : `Sign in as ${role}`}
+              {submitting ? "Signing in…" : "Sign in"}
             </Button>
 
-            <Card className="border-dashed bg-muted/40">
-              <CardContent className="p-3 text-xs text-muted-foreground">
-                <p className="font-medium text-foreground">Admin login</p>
-                <p>Email: admin@mitmysore.ac.in</p>
-                <p>Password: Admin@123 — choose the Admin tab.</p>
-              </CardContent>
-            </Card>
+
           </form>
         </div>
 

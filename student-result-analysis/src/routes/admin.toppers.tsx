@@ -5,6 +5,15 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { RankCard } from "@/components/cards/RankCard";
 import { TopperTable } from "@/components/tables/TopperTable";
 import { BarChartComponent } from "@/components/charts/BarChartComponent";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Info } from "lucide-react";
 import type { Student } from "@/data/mockData";
 import { adminService, type AdminTopperRow } from "@/services/adminService";
 import { getApiErrorMessage } from "@/services/api";
@@ -26,7 +35,7 @@ function toStudent(row: AdminTopperRow): Student {
 
 function Toppers() {
   const [top10, setTop10] = useState<Student[]>([]);
-  const [deptToppers, setDeptToppers] = useState<Array<{ department: string; cgpa: number }>>([]);
+  const [semesterToppers, setSemesterToppers] = useState<Array<{ semester: number; studentName: string; cgpa: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,18 +47,29 @@ function Toppers() {
       .getToppers()
       .then((data) => {
         if (cancelled) return;
-        setTop10((data.toppers ?? []).map(toStudent));
-        setDeptToppers(
-          (data.department_toppers ?? []).map((d) => ({
-            department: d.department.split(" ")[0],
-            cgpa: d.cgpa,
-          })),
-        );
+        
+        const toppers = data.toppers ?? [];
+        setTop10(toppers.map(toStudent));
+        
+        const semMap = toppers
+          .filter((t) => t.semester != null && t.cgpa != null)
+          .reduce((acc: Record<number, { semester: number; studentName: string; cgpa: number }>, t) => {
+            if (!acc[t.semester] || t.cgpa > acc[t.semester].cgpa) {
+              acc[t.semester] = {
+                semester: t.semester,
+                studentName: t.name,
+                cgpa: t.cgpa,
+              };
+            }
+            return acc;
+          }, {});
+          
+        setSemesterToppers(Object.values(semMap).sort((a, b) => a.semester - b.semester));
       })
       .catch((err) => {
         if (cancelled) return;
         setTop10([]);
-        setDeptToppers([]);
+        setSemesterToppers([]);
         setError(getApiErrorMessage(err, "Could not load topper data."));
       })
       .finally(() => {
@@ -105,13 +125,38 @@ function Toppers() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Department Toppers</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Semester Topper List</CardTitle></CardHeader>
               <CardContent>
-                <BarChartComponent
-                  data={deptToppers}
-                  xKey="department"
-                  bars={[{ key: "cgpa", name: "Top CGPA", color: "var(--color-chart-3)" }]}
-                />
+                {semesterToppers.length === 0 ? (
+                  <div className="flex h-[200px] items-center justify-center">
+                    <p className="text-sm text-muted-foreground">No semester topper data available.</p>
+                  </div>
+                ) : (
+                  <>
+                    <Table>
+                      <TableHeader className="bg-muted/50">
+                        <TableRow>
+                          <TableHead>Semester</TableHead>
+                          <TableHead>Topper</TableHead>
+                          <TableHead className="text-right">CGPA</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {semesterToppers.map((st) => (
+                          <TableRow key={st.semester}>
+                            <TableCell className="font-medium">Semester {st.semester}</TableCell>
+                            <TableCell>{st.studentName}</TableCell>
+                            <TableCell className="text-right">{st.cgpa.toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Info className="h-4 w-4" />
+                      <p>Topper is based on the highest CGPA in each semester.</p>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
