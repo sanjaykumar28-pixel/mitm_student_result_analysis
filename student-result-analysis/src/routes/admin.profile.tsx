@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
-import { 
-  User, Mail, Building, ShieldCheck, 
-  Edit2, Save, X, Phone, Calendar, Key
-} from "lucide-react";
+import { adminService, type AdminProfile } from "@/services/adminService";
+import { getApiErrorMessage } from "@/services/api";
+import { toast } from "sonner";
+import { User, Mail, Building, ShieldCheck, Edit2, Save, X, Calendar, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -16,40 +16,45 @@ export const Route = createFileRoute("/admin/profile")({
 });
 
 function AdminProfile() {
-  const { user } = useAuth();
-  
-  const [localProfile, setLocalProfile] = useState<{
-    name?: string;
-    email?: string;
-    phone?: string;
-    department?: string;
-    institution?: string;
-  }>({});
-  
+  const { user, updateUser } = useAuth();
+  const [profile, setProfile] = useState<AdminProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  
-  const name = localProfile.name ?? user?.name ?? "Administrator";
-  const email = localProfile.email ?? user?.email ?? "admin@example.com";
-  const role = user?.role === "admin" ? "Administrator" : "User";
-  const phone = localProfile.phone ?? "+1 (555) 000-0000";
-  const department = localProfile.department ?? "Computer Science";
-  const institution = localProfile.institution ?? "MITM College";
-  const adminId = user?.id ?? "ADM-2026-001";
-  const status = "Active";
-  const joinedDate = "Aug 2023";
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({ email: "" });
 
-  const [editForm, setEditForm] = useState({
-    name,
-    email,
-    phone,
-    department,
-    institution
-  });
+  useEffect(() => {
+    let cancelled = false;
+    adminService.getProfile()
+      .then((data) => {
+        if (!cancelled) {
+          setProfile(data);
+          setEditForm({ email: data.email });
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setProfileError(getApiErrorMessage(error, "Could not load your profile."));
+      })
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const name = user?.name ?? "Administrator";
+  const email = profile?.email ?? user?.email ?? "";
+  const role = "Administrator";
+  const department = "Not configured";
+  const institution = "Not configured";
+  const adminId = profile?.id ?? user?.id ?? "—";
+  const status = "Active";
+  const joinedDate = profile ? new Date(profile.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "—";
 
   const initials = name.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("") || "A";
 
   const startEdit = () => {
-    setEditForm({ name, email, phone, department, institution });
+    setEditForm({ email });
     setIsEditing(true);
   };
 
@@ -57,17 +62,28 @@ function AdminProfile() {
     setIsEditing(false);
   };
 
-  const saveEdit = () => {
-    setLocalProfile({
-      name: editForm.name,
-      email: editForm.email,
-      phone: editForm.phone,
-      department: editForm.department,
-      institution: editForm.institution
-    });
-    setIsEditing(false);
-    alert("Profile updated locally. A backend update API is required for permanent database changes.");
+  const saveEdit = async () => {
+    setSaving(true);
+    try {
+      const updated = await adminService.updateProfile(editForm);
+      setProfile(updated);
+      updateUser({ email: updated.email });
+      setIsEditing(false);
+      toast.success("Profile updated successfully.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not update your profile."));
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (profileLoading) {
+    return <div className="p-6 text-muted-foreground">Loading profile...</div>;
+  }
+
+  if (profileError || !profile) {
+    return <div className="p-6 text-destructive">{profileError ?? "Profile unavailable."}</div>;
+  }
 
   return (
     <div className="space-y-6 pb-8 animate-in fade-in duration-300">
@@ -140,7 +156,7 @@ function AdminProfile() {
                     <X className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
-                  <Button size="sm" onClick={saveEdit}>
+                  <Button size="sm" onClick={saveEdit} disabled={saving || !editForm.email.trim()}>
                     <Save className="h-4 w-4 mr-2" />
                     Save Changes
                   </Button>
@@ -151,29 +167,21 @@ function AdminProfile() {
               <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-8">
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Full Name</div>
-                  {isEditing ? (
-                    <Input className="mt-1 h-8" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} />
-                  ) : (
-                    <div className="mt-1 text-base font-medium">{name}</div>
-                  )}
+                  <div className="mt-1 text-base font-medium">{name}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Email Address</div>
                   {isEditing ? (
-                    <Input className="mt-1 h-8" value={editForm.email} onChange={(e) => setEditForm({...editForm, email: e.target.value})} />
+                    <Input type="email" className="mt-1 h-8" value={editForm.email} onChange={(e) => setEditForm({ email: e.target.value })} />
                   ) : (
                     <div className="mt-1 text-base font-medium">{email}</div>
                   )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Phone className="h-4 w-4" /> Phone Number
+                    Phone Number
                   </div>
-                  {isEditing ? (
-                    <Input className="mt-1 h-8" value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} />
-                  ) : (
-                    <div className="mt-1 text-base font-medium">{phone}</div>
-                  )}
+                  <div className="mt-1 text-base font-medium">Not configured</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Admin ID</div>
@@ -194,19 +202,11 @@ function AdminProfile() {
               <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-8">
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Department</div>
-                  {isEditing ? (
-                    <Input className="mt-1 h-8" value={editForm.department} onChange={(e) => setEditForm({...editForm, department: e.target.value})} />
-                  ) : (
-                    <div className="mt-1 text-base font-medium">{department}</div>
-                  )}
+                  <div className="mt-1 text-base font-medium">{department}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">College / Institution</div>
-                  {isEditing ? (
-                    <Input className="mt-1 h-8" value={editForm.institution} onChange={(e) => setEditForm({...editForm, institution: e.target.value})} />
-                  ) : (
-                    <div className="mt-1 text-base font-medium">{institution}</div>
-                  )}
+                  <div className="mt-1 text-base font-medium">{institution}</div>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">

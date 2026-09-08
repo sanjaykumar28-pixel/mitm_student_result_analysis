@@ -1,5 +1,7 @@
 import axios from "axios";
 
+export const AUTH_INVALID_EVENT = "sras-auth-invalid";
+
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? "/api",
   headers: { "Content-Type": "application/json" },
@@ -44,7 +46,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (error) => {
-    // Centralized error logging hook
+    if (
+      typeof window !== "undefined" &&
+      error.response?.status === 401 &&
+      !error.config?.url?.endsWith("/auth/login")
+    ) {
+      window.dispatchEvent(new Event(AUTH_INVALID_EVENT));
+    }
     return Promise.reject(error);
   },
 );

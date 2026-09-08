@@ -1,3 +1,6 @@
+from datetime import datetime
+import re
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from typing import Literal
@@ -8,7 +11,6 @@ Role = Literal["admin", "student"]
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6, max_length=64)
-    role: Role
 
     @field_validator("email")
     @classmethod
@@ -32,8 +34,24 @@ class LoginResponse(BaseModel):
     user: AuthUser
 
 
+class AdminProfileResponse(BaseModel):
+    id: str
+    email: EmailStr
+    role: Literal["admin"]
+    created_at: datetime
+
+
+class AdminProfileUpdate(BaseModel):
+    email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: EmailStr) -> str:
+        return str(value).lower()
+
+
 class AddStudentRequest(BaseModel):
-    usn: str = Field(min_length=3, max_length=20)
+    usn: str = Field(min_length=10, max_length=12)
     name: str = Field(min_length=2, max_length=100)
     email: EmailStr
     department: str = Field(min_length=1, max_length=80)
@@ -48,7 +66,10 @@ class AddStudentRequest(BaseModel):
     @field_validator("usn")
     @classmethod
     def normalize_usn(cls, value: str) -> str:
-        return value.strip().upper()
+        normalized = value.strip().upper()
+        if not re.fullmatch(r"\d[A-Z]{2}\d{2}[A-Z]{2,4}\d{3}", normalized):
+            raise ValueError("USN must match the format 4MH24MC001")
+        return normalized
 
     @field_validator("name", "department")
     @classmethod

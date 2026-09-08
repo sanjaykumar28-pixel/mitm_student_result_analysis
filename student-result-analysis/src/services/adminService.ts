@@ -1,5 +1,16 @@
 import { api } from "./api";
 
+export interface AdminProfile {
+  id: string;
+  email: string;
+  role: "admin";
+  created_at: string;
+}
+
+export interface AdminProfileUpdate {
+  email: string;
+}
+
 export interface AddStudentPayload {
   usn: string;
   name: string;
@@ -97,6 +108,9 @@ export interface AdminToppersResponse {
 }
 
 export const adminService = {
+  getProfile: () => api.get<AdminProfile>("/admin/profile").then((r) => r.data),
+  updateProfile: (data: AdminProfileUpdate) =>
+    api.patch<AdminProfile>("/admin/profile", data).then((r) => r.data),
   getDashboardStats: () => api.get("/admin/stats").then((r) => r.data),
   addStudent: (data: AddStudentPayload) =>
     api.post<AddStudentResponse>("/admin/students", data).then((r) => r.data),

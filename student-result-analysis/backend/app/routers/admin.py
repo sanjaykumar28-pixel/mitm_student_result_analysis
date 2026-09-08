@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 import logging
 
@@ -10,6 +11,8 @@ from app.schemas import (
     AddStudentResponse,
     AddSubjectRequest,
     AddSubjectResponse,
+    AdminProfileResponse,
+    AdminProfileUpdate,
     AdminResultsResponse,
     AdminToppersResponse,
     ImportUploadResponse,
@@ -22,6 +25,39 @@ from app.services.subjects import create_subject
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
+
+
+def to_admin_profile(login: Login) -> AdminProfileResponse:
+    return AdminProfileResponse(
+        id=f"ADM{login.login_id:03d}",
+        email=login.email,
+        role="admin",
+        created_at=login.created_at,
+    )
+
+
+@router.get("/profile", response_model=AdminProfileResponse)
+def get_admin_profile(login: Login = Depends(require_admin)) -> AdminProfileResponse:
+    return to_admin_profile(login)
+
+
+@router.patch("/profile", response_model=AdminProfileResponse)
+def update_admin_profile(
+    body: AdminProfileUpdate,
+    db: Session = Depends(get_db),
+    login: Login = Depends(require_admin),
+) -> AdminProfileResponse:
+    login.email = body.email
+    try:
+        db.commit()
+        db.refresh(login)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="That email address is already in use.",
+        ) from exc
+    return to_admin_profile(login)
 
 
 @router.post("/students", response_model=AddStudentResponse, status_code=201)

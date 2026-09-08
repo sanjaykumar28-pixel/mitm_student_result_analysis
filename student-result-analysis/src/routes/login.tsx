@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { getAuthErrorMessage, useAuth, type UserRole } from "@/context/AuthContext";
+import { getAuthErrorMessage, useAuth } from "@/context/AuthContext";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -34,7 +34,6 @@ type LoginValues = z.infer<typeof loginSchema>;
 function LoginPage() {
   const navigate = useNavigate();
   const { login, isAuthenticated, user, loading } = useAuth();
-  const [role, setRole] = useState<UserRole>("student");
   const [submitting, setSubmitting] = useState(false);
 
   const {
@@ -55,7 +54,7 @@ function LoginPage() {
   const onSubmit = async (values: LoginValues) => {
     setSubmitting(true);
     try {
-      const u = await login(values.email, values.password, role, values.remember ?? true);
+      const u = await login(values.email, values.password, values.remember ?? true);
       toast.success(`Welcome back, ${u.name.split(" ")[0]}!`);
       navigate({ to: u.role === "admin" ? "/admin/dashboard" : "/student/dashboard" });
     } catch (error) {

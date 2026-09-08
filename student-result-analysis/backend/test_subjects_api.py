@@ -8,7 +8,7 @@ BASE = "http://127.0.0.1:8000"
 # ── 1. Obtain admin JWT ────────────────────────────────────────────────────────
 login_resp = requests.post(
     f"{BASE}/auth/login",
-    json={"email": "admin@mitmysore.ac.in", "password": "Admin@123", "role": "admin"},
+    json={"email": "admin@mitmysore.ac.in", "password": "Admin@123"},
     timeout=10,
 )
 if login_resp.status_code != 200:

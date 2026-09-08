@@ -21,7 +21,11 @@ export const Route = createFileRoute("/admin/add-student")({
 });
 
 const schema = z.object({
-  studentId: z.string().trim().min(3, "Student ID required").max(20),
+  studentId: z
+    .string()
+    .trim()
+    .min(1, "USN required")
+    .regex(/^\d[A-Za-z]{2}\d{2}[A-Za-z]{2,4}\d{3}$/, "USN must match the format 4MH24MC001"),
   name: z.string().trim().min(2, "Name required").max(100),
   email: z.string().trim().email("Valid email required").max(255),
   department: z.string().min(1, "Department required"),
@@ -38,6 +42,7 @@ function AddStudent() {
     reset,
     setValue,
     watch,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
@@ -64,7 +69,13 @@ function AddStudent() {
       ]);
       reset();
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Could not add student."));
+      const message = getApiErrorMessage(error, "Could not add student.");
+      if (message.toLowerCase().includes("usn already exists")) {
+        setError("studentId", { type: "server", message });
+      } else if (message.toLowerCase().includes("email already exists")) {
+        setError("email", { type: "server", message });
+      }
+      toast.error(message);
     }
   };
 
@@ -80,7 +91,7 @@ function AddStudent() {
           <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="studentId">Student ID</Label>
-              <Input id="studentId" placeholder="4MHXXXXXXX" {...register("studentId")} />
+              <Input id="studentId" placeholder="4MH24MC001" {...register("studentId")} />
               {errors.studentId && <p className="text-xs text-destructive">{errors.studentId.message}</p>}
             </div>
             <div className="space-y-1.5">

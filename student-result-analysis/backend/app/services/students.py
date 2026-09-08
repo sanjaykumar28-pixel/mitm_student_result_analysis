@@ -7,27 +7,32 @@ from app.schemas import AddStudentRequest, AddStudentResponse
 from app.security import hash_password
 
 
-def create_student_with_login(db: Session, body: AddStudentRequest) -> AddStudentResponse:
-    email = body.email
-    usn = body.usn
+def _duplicate_error(field: str, message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"code": "duplicate", "field": field, "message": message},
+    )
 
+
+def _raise_duplicate_conflict(db: Session, usn: str, email: str) -> None:
+    if db.query(Student).filter(Student.usn == usn).first():
+        raise _duplicate_error("usn", "USN already exists. Please enter a different USN.")
     if db.query(Login).filter(Login.email == email).first():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A login account with this email already exists",
-        )
+        raise _duplicate_error("email", "Email already exists. Please use a different email.")
     if db.query(Login).filter(Login.usn == usn).first():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A login account with this USN already exists",
-        )
+        raise _duplicate_error("usn", "USN already exists. Please enter a different USN.")
 
-    existing_student = db.query(Student).filter(Student.usn == usn).first()
-    if existing_student and existing_student.login_id is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A student with this USN already exists",
-        )
+
+def create_student_with_login(db: Session, body: AddStudentRequest) -> AddStudentResponse:
+    email = str(body.email).lower()
+    usn = body.usn.strip().upper()
+
+    if db.query(Student).filter(Student.usn == usn).first():
+        raise _duplicate_error("usn", "USN already exists. Please enter a different USN.")
+    if db.query(Login).filter(Login.email == email).first():
+        raise _duplicate_error("email", "Email already exists. Please use a different email.")
+    if db.query(Login).filter(Login.usn == usn).first():
+        raise _duplicate_error("usn", "USN already exists. Please enter a different USN.")
 
     try:
         login = Login(
@@ -39,31 +44,22 @@ def create_student_with_login(db: Session, body: AddStudentRequest) -> AddStuden
         db.add(login)
         db.flush()
 
-        if existing_student:
-            existing_student.login_id = login.login_id
-            existing_student.student_name = body.name
-            existing_student.department = body.department
-            existing_student.semester = body.semester
-            student = existing_student
-        else:
-            student = Student(
-                login_id=login.login_id,
-                usn=usn,
-                student_name=body.name,
-                department=body.department,
-                semester=body.semester,
-            )
-            db.add(student)
+        student = Student(
+            login_id=login.login_id,
+            usn=usn,
+            student_name=body.name,
+            department=body.department,
+            semester=body.semester,
+        )
+        db.add(student)
 
         db.commit()
         db.refresh(student)
         db.refresh(login)
     except IntegrityError:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="USN or email already exists",
-        )
+        _raise_duplicate_conflict(db, usn, email)
+        raise _duplicate_error("student", "Student could not be created because of a duplicate record.")
 
     return AddStudentResponse(
         student_id=student.student_id,

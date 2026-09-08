@@ -20,13 +20,18 @@ def to_auth_user(login: Login) -> AuthUser:
             email=login.email,
             role="admin",
         )
-    if student is None:
+    if login.role == "student" and student is None:
         return AuthUser(
             id=login.usn or str(login.login_id),
             name=login.email.split("@")[0],
             email=login.email,
             role="student",
             usn=login.usn,
+        )
+    if login.role != "student":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has an unauthorized role",
         )
     return AuthUser(
         id=student.usn,
@@ -52,10 +57,10 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
-    if account.role != body.role:
+    if account.role not in ("admin", "student"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"This account is registered as {account.role}, not {body.role}",
+            detail="This account has an unauthorized role",
         )
 
     token = create_access_token(login_id=account.login_id, email=account.email, role=account.role)
