@@ -9,12 +9,18 @@ import { PieChartComponent } from "@/components/charts/PieChartComponent";
 import { TopperTable } from "@/components/tables/TopperTable";
 import {
   adminStats,
-  departmentPerformance,
   semesterPass,
   gradeDistribution,
   performanceTrend,
   mockStudents,
 } from "@/data/mockData";
+
+// Frontend-only data — gender breakdown is not available from the backend API.
+// These values are representative placeholders until the backend exposes gender data.
+const genderPerformance = [
+  { gender: "Male",   avgCgpa: 8.15 },
+  { gender: "Female", avgCgpa: 8.54 },
+];
 
 export const Route = createFileRoute("/admin/dashboard")({
   component: AdminDashboard,
@@ -41,15 +47,14 @@ function AdminDashboard() {
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Department-wise Performance</CardTitle>
+            <CardTitle className="text-base">Performance by Gender</CardTitle>
           </CardHeader>
           <CardContent>
             <BarChartComponent
-              data={departmentPerformance}
-              xKey="department"
+              data={genderPerformance}
+              xKey="gender"
               bars={[
-                { key: "avgCgpa", name: "Avg CGPA" },
-                { key: "pass", name: "Pass %" },
+                { key: "avgCgpa", name: "Average CGPA" },
               ]}
             />
           </CardContent>
