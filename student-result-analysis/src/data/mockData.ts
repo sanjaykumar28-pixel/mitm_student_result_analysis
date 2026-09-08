@@ -58,11 +58,11 @@ export const mockStudents: Student[] = [
 ];
 
 export const adminStats = {
-  totalStudents: 1284,
-  totalSubjects: 86,
+  totalStudents: 120,
+  totalSubjects: 8,
   passPercentage: 92.4,
   averageCGPA: 8.21,
-  topPerformer: "Sneha Kapoor",
+  topPerformer: "Sagar CR",
 };
 
 export const departmentPerformance = [
