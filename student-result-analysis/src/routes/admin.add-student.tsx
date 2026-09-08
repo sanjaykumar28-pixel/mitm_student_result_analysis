@@ -175,7 +175,7 @@ function AddStudent() {
       <PageHeader title="Add Student" subtitle="Create a new student account or bulk-import via Excel." />
 
       {/* ── 1. Manual Add Student ─────────────────────────────────────────── */}
-      <Card className="max-w-3xl">
+      <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-base">Student Information</CardTitle>
         </CardHeader>
@@ -273,7 +273,7 @@ function AddStudent() {
       </Card>
 
       {/* ── 2. Student Details Bulk Upload ────────────────────────────────── */}
-      <Card className="mt-6 max-w-3xl">
+      <Card className="mt-6 w-full">
         <CardHeader>
           <CardTitle className="text-base">Upload Excel Sheet</CardTitle>
         </CardHeader>
@@ -413,7 +413,7 @@ function AddStudent() {
       </Card>
 
       {/* ── 3. Student List ───────────────────────────────────────────────── */}
-      <div className="mt-6 max-w-3xl">
+      <div className="mt-6 w-full">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Student List</CardTitle>
@@ -430,7 +430,8 @@ function AddStudent() {
                 <table className="w-full text-sm">
                   <thead className="border-b bg-muted/50 text-muted-foreground">
                     <tr>
-                      <th className="h-10 px-4 text-left font-medium">Full Name</th>
+                      <th className="h-10 px-4 text-center font-medium w-16">S.No</th>
+                      <th className="h-10 px-4 text-left font-medium">Student Name</th>
                       <th className="h-10 px-4 text-left font-medium">USN</th>
                       <th className="h-10 px-4 text-left font-medium">Email</th>
                       <th className="h-10 px-4 text-left font-medium">Department</th>
@@ -439,11 +440,12 @@ function AddStudent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map((student) => (
+                    {students.map((student, index) => (
                       <tr
                         key={student.student_id}
                         className="border-b last:border-0 hover:bg-muted/50 transition-colors"
                       >
+                        <td className="p-4 align-middle text-center text-muted-foreground">{index + 1}</td>
                         <td className="p-4 align-middle font-medium">{student.student_name}</td>
                         <td className="p-4 align-middle font-mono text-xs">{student.usn}</td>
                         <td className="p-4 align-middle text-muted-foreground">{student.email ?? "—"}</td>

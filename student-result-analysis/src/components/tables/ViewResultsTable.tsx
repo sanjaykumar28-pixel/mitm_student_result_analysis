@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText } from "lucide-react";
+import { FileText, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -136,16 +136,106 @@ function ResultSheetModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-[95vw] lg:max-w-5xl xl:max-w-[1200px] w-full max-h-[90vh] overflow-y-auto overflow-x-hidden p-0">
+      <DialogContent className="print-modal max-w-[95vw] lg:max-w-5xl xl:max-w-[1200px] w-full max-h-[90vh] overflow-y-auto overflow-x-hidden p-0">
+        <style>{`
+          @media print {
+            @page {
+              size: A4 portrait;
+              margin: 12mm 15mm;
+            }
+
+            html, body {
+              height: auto !important;
+              min-height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
+              background: #ffffff !important;
+              color: #000000 !important;
+            }
+
+            /* Hide all page content except the print modal */
+            body > * {
+              visibility: hidden !important;
+            }
+
+            [data-radix-portal],
+            .print-modal,
+            .print-modal * {
+              visibility: visible !important;
+            }
+
+            /* Un-constrain modal container for print */
+            .print-modal {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
+              box-shadow: none !important;
+              border: none !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              transform: none !important;
+              background: #ffffff !important;
+            }
+
+            /* Un-constrain inner wrappers */
+            .print-modal div,
+            .print-modal section,
+            .print-modal table,
+            .print-modal tbody {
+              overflow: visible !important;
+              max-height: none !important;
+              height: auto !important;
+            }
+
+            /* Hide buttons & close icons during print */
+            .print-hidden,
+            button,
+            [data-radix-collection-item],
+            button[aria-label="Close"] {
+              display: none !important;
+            }
+
+            /* Avoid page breaks inside table rows and summary blocks */
+            .print-modal tr,
+            .print-modal section,
+            .print-modal .rounded-xl {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+
+            /* Clean borders for print */
+            .print-modal .border {
+              border-color: #d1d5db !important;
+            }
+
+            .print-modal table th,
+            .print-modal table td {
+              border-bottom: 1px solid #e5e7eb !important;
+            }
+          }
+        `}</style>
         {/* ── Header ── */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b bg-muted/30">
-          <DialogTitle className="flex items-center gap-2 text-lg font-bold tracking-tight">
-            <FileText className="h-5 w-5 text-primary" />
-            Student Result Sheet
-          </DialogTitle>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Maharaja Institute of Technology Mysore · Provisional Grade Card
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="flex items-center gap-2 text-lg font-bold tracking-tight text-foreground">
+                <FileText className="h-5 w-5 text-primary print-hidden" />
+                Maharaja Institute of Technology Mysore
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Department of Computer Applications · Provisional Grade Card
+              </p>
+            </div>
+            <div className="hidden print:block text-right text-xs text-muted-foreground">
+              <p className="font-semibold text-foreground">Student Result Analysis</p>
+              <p>Printed: {new Date().toLocaleDateString("en-GB")}</p>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="px-6 py-5 space-y-6">
@@ -251,43 +341,29 @@ function ResultSheetModal({
             </div>
           </section>
 
-          {/* ── Grade Legend ── */}
-          <section>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Grade Legend
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-              {GRADE_LEGEND.map(({ grade, label, points }) => (
-                <div
-                  key={grade}
-                  className="rounded-lg border bg-card p-2 text-center shadow-sm"
-                >
-                  <p className="text-base font-bold text-foreground">{grade}</p>
-                  <p className="text-xs text-muted-foreground leading-tight">
-                    {label}
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-primary">
-                    {points} pts
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
           {/* ── Footer / Close ── */}
-          <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground">
+          <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground print-hidden">
             <span>
               Generated: {new Date().toLocaleDateString("en-GB")} · Provisional
               result only
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              className="gap-1.5"
-            >
-              Close
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onClose}
+              >
+                Close
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => window.print()}
+                className="gap-1.5 rounded-md text-white bg-primary hover:bg-primary/90"
+              >
+                <Printer className="h-4 w-4" />
+                Print Result
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
@@ -339,6 +415,9 @@ export function ViewResultsTable({ results }: ViewResultsTableProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
+                <th className="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground w-16">
+                  S.No
+                </th>
                 <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   ID
                 </th>
@@ -363,11 +442,16 @@ export function ViewResultsTable({ results }: ViewResultsTableProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {results.map((row) => (
+              {results.map((row, index) => (
                 <tr
                   key={row.result_id}
                   className="group transition-colors hover:bg-muted/30"
                 >
+                  {/* S.No */}
+                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium text-xs w-16">
+                    {index + 1}
+                  </td>
+
                   {/* USN */}
                   <td className="px-4 py-3.5">
                     <span className="font-mono text-xs font-medium text-primary bg-primary/8 rounded-md px-1.5 py-0.5 border border-primary/15">
