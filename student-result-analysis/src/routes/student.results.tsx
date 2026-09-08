@@ -4,7 +4,6 @@ import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { gradePoint, type Grade } from "@/data/mockData";
-import { toast } from "sonner";
 import { studentService, type StudentSemesterResult, type StudentDashboardResponse } from "@/services/studentService";
 import { getApiErrorMessage } from "@/services/api";
 
@@ -52,6 +51,17 @@ function StudentResults() {
   const totalCreditsReg = subjects.reduce((a, s) => a + (s.credits || 0), 0);
   const totalCreditsEar = semData?.credits_earned ?? subjects.reduce((a, s) => a + (s.grade !== 'F' ? (s.credits || 0) : 0), 0);
 
+  const totalPoints = useMemo(() => {
+    if (semData?.sgpa != null && totalCreditsEar) {
+      return (semData.sgpa * totalCreditsEar).toFixed(1);
+    }
+    const points = subjects.reduce((a, s) => {
+      const gp = s.grade && s.grade in gradePoint ? gradePoint[s.grade as Grade] : 0;
+      return a + gp * (s.credits || 0);
+    }, 0);
+    return points.toFixed(1);
+  }, [semData, totalCreditsEar, subjects]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -60,27 +70,47 @@ function StudentResults() {
     <>
       <style>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          #print-grade-card, #print-grade-card * {
-            visibility: visible;
-          }
-          #print-grade-card {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            margin: 0;
-            padding: 15mm 15mm;
-            box-sizing: border-box;
-            page-break-inside: avoid;
-            font-size: 14px;
-          }
-          /* Removing margins from @page removes browser header and footer */
           @page {
             size: A4 portrait;
-            margin: 0;
+            margin: 10mm;
+          }
+
+          html, body {
+            height: auto !important;
+            min-height: auto !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          #print-grade-card,
+          #print-grade-card * {
+            visibility: visible !important;
+          }
+
+          #print-grade-card {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 4mm 6mm !important;
+            box-sizing: border-box !important;
+            font-size: 12px !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+
+          #print-grade-card tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `}</style>
@@ -121,64 +151,59 @@ function StudentResults() {
           <p className="mt-1 text-xs text-muted-foreground">No stored results for your account.</p>
         </div>
       ) : (
-        <div id="print-grade-card" className="bg-white text-black p-6 md:p-10 max-w-5xl mx-auto border shadow-sm">
+        <div id="print-grade-card" className="bg-white text-black p-6 md:p-8 max-w-4xl mx-auto border shadow-sm rounded-xl">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-xl md:text-2xl font-bold uppercase tracking-wide">Maharaja Institute of Technology Mysore</h1>
-            <p className="text-sm md:text-base font-semibold mt-1">An Autonomous Institution Affiliated to VTU</p>
-            <h2 className="text-lg md:text-xl font-bold mt-4 underline underline-offset-4 decoration-2">Provisional Grade Card</h2>
-            <p className="text-sm font-medium mt-2">Semester {sem} Examination</p>
+          <div className="text-center mb-6">
+            <h1 className="text-xl font-bold uppercase tracking-wide">Maharaja Institute of Technology Mysore</h1>
+            <p className="text-xs md:text-sm font-semibold mt-1">An Autonomous Institution Affiliated to VTU</p>
+            <h2 className="text-base font-bold mt-3 underline underline-offset-4 decoration-2">Provisional Grade Card</h2>
+            <p className="text-xs font-medium mt-1">Semester {sem} Examination</p>
           </div>
 
-          {/* Student Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-8 mb-6 text-sm font-semibold border-b pb-6 border-black/20">
-            <div className="flex">
-              <span className="w-24 shrink-0">USN</span>
-              <span className="mr-2">:</span>
-              <span className="uppercase">{dashboard?.usn || "—"}</span>
+          {/* Aligned Student Info */}
+          <div className="space-y-1.5 mb-6 text-xs font-semibold border-b pb-4 border-black/30">
+            <div className="grid grid-cols-[110px_16px_1fr] items-center">
+              <span>USN</span>
+              <span>:</span>
+              <span className="uppercase font-mono">{dashboard?.usn || "—"}</span>
             </div>
-            <div className="flex">
-              <span className="w-36 md:w-48 shrink-0">Semester</span>
-              <span className="mr-2">:</span>
+            <div className="grid grid-cols-[110px_16px_1fr] items-center">
+              <span>Semester</span>
+              <span>:</span>
               <span>Semester {sem || "—"}</span>
             </div>
-            <div className="flex">
-              <span className="w-24 shrink-0">NAME</span>
-              <span className="mr-2">:</span>
+            <div className="grid grid-cols-[110px_16px_1fr] items-center">
+              <span>NAME</span>
+              <span>:</span>
               <span className="uppercase">{dashboard?.name || "—"}</span>
             </div>
-            <div className="flex">
-              <span className="w-36 md:w-48 shrink-0">Father's / Mother's Name</span>
-              <span className="mr-2">:</span>
-              <span>—</span>
-            </div>
-            <div className="flex">
-              <span className="w-24 shrink-0">Branch</span>
-              <span className="mr-2">:</span>
+            <div className="grid grid-cols-[110px_16px_1fr] items-center">
+              <span>Branch</span>
+              <span>:</span>
               <span className="uppercase">{dashboard?.department || "—"}</span>
             </div>
-            <div className="flex">
-              <span className="w-36 md:w-48 shrink-0">Program</span>
-              <span className="mr-2">:</span>
+            <div className="grid grid-cols-[110px_16px_1fr] items-center">
+              <span>Program</span>
+              <span>:</span>
               <span className="uppercase">M.C.A</span>
             </div>
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto mb-6">
-            <table className="w-full text-sm border-collapse border border-black">
+          <div className="mb-5">
+            <table className="w-full text-xs border-collapse border border-black table-fixed">
               <thead>
-                <tr className="bg-gray-50/50">
-                  <th className="border border-black p-2 font-bold text-center w-12">S.No</th>
-                  <th className="border border-black p-2 font-bold text-center w-28">Course Code</th>
-                  <th className="border border-black p-2 font-bold text-left">Course Name</th>
-                  <th className="border border-black p-2 font-bold text-center w-16">CIE</th>
-                  <th className="border border-black p-2 font-bold text-center w-16">SEE</th>
-                  <th className="border border-black p-2 font-bold text-center w-16">Total</th>
-                  <th className="border border-black p-2 font-bold text-center w-20">Grade Point</th>
-                  <th className="border border-black p-2 font-bold text-center w-16">Grade</th>
-                  <th className="border border-black p-2 font-bold text-center w-20">Credits Reg.</th>
-                  <th className="border border-black p-2 font-bold text-center w-20">Credits Ear.</th>
+                <tr className="bg-gray-100/80">
+                  <th className="border border-black p-2 text-center font-bold w-[6%]">S.No</th>
+                  <th className="border border-black p-2 text-center font-bold w-[13%]">Course Code</th>
+                  <th className="border border-black p-2 text-left font-bold w-[24%]">Course Name</th>
+                  <th className="border border-black p-2 text-center font-bold w-[6%]">CIE</th>
+                  <th className="border border-black p-2 text-center font-bold w-[6%]">SEE</th>
+                  <th className="border border-black p-2 text-center font-bold w-[7%]">Total</th>
+                  <th className="border border-black p-2 text-center font-bold w-[9%]">Grade Point</th>
+                  <th className="border border-black p-2 text-center font-bold w-[7%]">Grade</th>
+                  <th className="border border-black p-2 text-center font-bold w-[11%]">Credits Reg.</th>
+                  <th className="border border-black p-2 text-center font-bold w-[11%]">Credits Ear.</th>
                 </tr>
               </thead>
               <tbody>
@@ -189,7 +214,7 @@ function StudentResults() {
                     <tr key={s.code}>
                       <td className="border border-black p-2 text-center">{idx + 1}</td>
                       <td className="border border-black p-2 text-center font-mono">{s.code}</td>
-                      <td className="border border-black p-2 text-left uppercase whitespace-pre-wrap leading-tight">{s.name}</td>
+                      <td className="border border-black p-2 text-left uppercase break-words leading-tight">{s.name}</td>
                       <td className="border border-black p-2 text-center">{s.internal_marks ?? "—"}</td>
                       <td className="border border-black p-2 text-center">{s.external_marks ?? "—"}</td>
                       <td className="border border-black p-2 text-center">{s.total_marks ?? s.marks ?? "—"}</td>
@@ -208,15 +233,15 @@ function StudentResults() {
                 </tr>
                 {/* SGPA Row */}
                 <tr className="font-bold">
-                  <td className="border border-black p-2 text-center" colSpan={8}>SGPA</td>
-                  <td className="border border-black p-2 text-center" colSpan={2}>
+                  <td className="border border-black p-1.5 text-center" colSpan={8}>SGPA</td>
+                  <td className="border border-black p-1.5 text-center" colSpan={2}>
                     {semData?.sgpa != null ? semData.sgpa.toFixed(2) : "—"}
                   </td>
                 </tr>
                 {/* CGPA Row */}
                 <tr className="font-bold">
-                  <td className="border border-black p-2 text-center" colSpan={8}>CGPA</td>
-                  <td className="border border-black p-2 text-center" colSpan={2}>
+                  <td className="border border-black p-1.5 text-center" colSpan={8}>CGPA</td>
+                  <td className="border border-black p-1.5 text-center" colSpan={2}>
                     {semData?.cgpa != null ? semData.cgpa.toFixed(2) : (dashboard?.overall_cgpa != null ? dashboard.overall_cgpa.toFixed(2) : "—")}
                   </td>
                 </tr>
@@ -224,8 +249,15 @@ function StudentResults() {
             </table>
           </div>
 
+          {/* Total Points / SGPA / CGPA Summary Line */}
+          <div className="flex justify-end gap-8 text-xs font-bold my-5 py-2.5 border-y border-black/40">
+            <div>Total Points : <span className="font-mono font-normal">{totalPoints}</span></div>
+            <div>SGPA : <span className="font-mono font-normal">{semData?.sgpa != null ? semData.sgpa.toFixed(2) : "—"}</span></div>
+            <div>CGPA : <span className="font-mono font-normal">{semData?.cgpa != null ? semData.cgpa.toFixed(2) : (dashboard?.overall_cgpa != null ? dashboard.overall_cgpa.toFixed(2) : "—")}</span></div>
+          </div>
+
           {/* Footer Dates and Sigs */}
-          <div className="flex justify-between items-end mt-12 mb-6 font-semibold text-sm">
+          <div className="flex justify-between items-end mt-8 mb-4 font-semibold text-xs">
             <div>
               Date: {new Date().toLocaleDateString("en-GB").replace(/\//g, "-")}
             </div>
@@ -235,7 +267,7 @@ function StudentResults() {
           </div>
 
           <hr className="border-black mb-2" />
-          <p className="text-xs text-justify font-medium">
+          <p className="text-[10px] text-justify font-medium leading-tight">
             <span className="font-bold">Note:</span> These are provisional results. The final official results will be provided by the university/institution. Any discrepancies should be reported to the Controller of Examinations immediately.
           </p>
         </div>

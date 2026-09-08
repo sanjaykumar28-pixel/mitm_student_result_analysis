@@ -184,7 +184,7 @@ function AddSubject() {
         }
       />
 
-      <Card className="max-w-3xl">
+      <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-base">
             {isEditing ? "Edit Subject Information" : "Subject Information"}
