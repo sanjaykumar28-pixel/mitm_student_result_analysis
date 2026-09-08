@@ -2,14 +2,34 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import SessionLocal
+from app.database import SessionLocal, engine
 from app.models import Login
 from app.routers import admin, auth, student
 from app.security import hash_password
+
+
+def ensure_schema_compatibility() -> None:
+    with engine.begin() as conn:
+        students_cols = {row[0] for row in conn.execute(text("SHOW COLUMNS FROM Students")).all()}
+        if "login_id" not in students_cols:
+            conn.execute(text("ALTER TABLE Students ADD COLUMN login_id INT NULL AFTER student_id"))
+        if "slno" not in students_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE Students ADD COLUMN slno INT NULL COMMENT 'Sheet serial number; not a stable identity' AFTER login_id"
+                )
+            )
+
+        subjects_cols = {row[0] for row in conn.execute(text("SHOW COLUMNS FROM Subjects")).all()}
+        if "department" not in subjects_cols:
+            conn.execute(
+                text("ALTER TABLE Subjects ADD COLUMN department VARCHAR(80) NULL AFTER semester")
+            )
 
 
 def seed_admin(db: Session) -> None:
@@ -30,6 +50,15 @@ def seed_admin(db: Session) -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    try:
+        ensure_schema_compatibility()
+    except OperationalError as exc:
+        raise RuntimeError(
+            "MySQL login failed. Open backend/.env and set MYSQL_USER / MYSQL_PASSWORD "
+            "to the same values you use in phpMyAdmin. XAMPP root is often an empty password "
+            "(MYSQL_PASSWORD= with nothing after the equals sign)."
+        ) from exc
+
     db = SessionLocal()
     try:
         seed_admin(db)

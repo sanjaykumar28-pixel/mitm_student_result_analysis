@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Pencil, Search, Trash2, BookOpen, SlidersHorizontal } from "lucide-react";
+import { Pencil, Search, Trash2, BookOpen, SlidersHorizontal, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { departments } from "@/data/mockData";
-import { adminService, type AddSubjectPayload } from "@/services/adminService";
+import { adminService, type AddSubjectPayload, type AdminSubjectRow } from "@/services/adminService";
 import { getApiErrorMessage } from "@/services/api";
 
 export const Route = createFileRoute("/admin/add-subject")({
@@ -44,19 +44,8 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-// ── Local subject type (matches AddSubjectResponse) ──────────────────────────
-interface SubjectRow {
-  subject_id: number;
-  subject_name: string;
-  subject_code: string;
-  credit: number;
-  semester: number;
-  department: string;
-}
-
 // ── Component ────────────────────────────────────────────────────────────────
 function AddSubject() {
-  // Form
   const {
     register,
     handleSubmit,
@@ -66,25 +55,36 @@ function AddSubject() {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
-  // Edit mode
   const [editingId, setEditingId] = useState<number | null>(null);
-
-  // Subject list (local state — populated from POST responses)
-  const [subjects, setSubjects] = useState<SubjectRow[]>([]);
-
-  // Delete confirmation
-  const [deleteTarget, setDeleteTarget] = useState<SubjectRow | null>(null);
-
-  // Filter & search
+  const [subjects, setSubjects] = useState<AdminSubjectRow[]>([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
+  const [subjectsError, setSubjectsError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminSubjectRow | null>(null);
   const [filterSem, setFilterSem] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // ── Submit (Add or "Edit") ─────────────────────────────────────────────────
+  const loadSubjects = useCallback(async () => {
+    setIsLoadingSubjects(true);
+    setSubjectsError(null);
+    try {
+      const rows = await adminService.getSubjects();
+      setSubjects(rows ?? []);
+    } catch (error) {
+      const message = getApiErrorMessage(error, "Could not load subjects.");
+      setSubjectsError(message);
+      setSubjects([]);
+    } finally {
+      setIsLoadingSubjects(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSubjects();
+  }, [loadSubjects]);
+
   const onSubmit = useCallback(
     async (data: FormValues) => {
       if (editingId !== null) {
-        // No PUT /admin/subjects endpoint exists in the backend.
-        // Update the subject in local state only.
         setSubjects((prev) =>
           prev.map((s) =>
             s.subject_id === editingId
@@ -105,7 +105,6 @@ function AddSubject() {
         return;
       }
 
-      // Add new subject via existing API
       try {
         const payload: AddSubjectPayload = {
           subject_name: data.subjectName,
@@ -114,73 +113,60 @@ function AddSubject() {
           department: data.department,
           semester: Number(data.semester),
         };
-        const result = await adminService.addSubject(payload);
-        // Append newly created subject to the local list
-        setSubjects((prev) => [
-          ...prev,
-          {
-            subject_id: result.subject_id,
-            subject_name: result.subject_name ?? data.subjectName,
-            subject_code: result.subject_code,
-            credit: result.credit ?? data.credit,
-            semester: result.semester,
-            department: result.department ?? data.department,
-          },
-        ]);
+        await adminService.addSubject(payload);
         toast.success(
           `Subject "${data.subjectName}" (${data.subjectCode.toUpperCase()}) added successfully.`,
         );
         reset();
+        await loadSubjects();
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Could not add subject."));
       }
     },
-    [editingId, reset],
+    [editingId, loadSubjects, reset],
   );
 
-  // ── Edit: populate form ───────────────────────────────────────────────────
   const handleEdit = useCallback(
-    (row: SubjectRow) => {
+    (row: AdminSubjectRow) => {
       setEditingId(row.subject_id);
-      setValue("subjectName", row.subject_name, { shouldValidate: false });
-      setValue("subjectCode", row.subject_code, { shouldValidate: false });
-      setValue("credit", row.credit, { shouldValidate: false });
-      setValue("department", row.department, { shouldValidate: false });
-      setValue("semester", String(row.semester), { shouldValidate: false });
+      setValue("subjectName", row.subject_name ?? "", { shouldValidate: false });
+      setValue("subjectCode", row.subject_code ?? "", { shouldValidate: false });
+      setValue("credit", row.credit ?? 0, { shouldValidate: false });
+      setValue("department", row.department ?? "", { shouldValidate: false });
+      setValue("semester", String(row.semester ?? ""), { shouldValidate: false });
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     [setValue],
   );
 
-  // ── Cancel edit ───────────────────────────────────────────────────────────
   const handleCancelEdit = useCallback(() => {
     setEditingId(null);
     reset();
   }, [reset]);
 
-  // ── Delete (local state only — no backend delete endpoint for subjects) ───
   const handleDeleteConfirm = useCallback(() => {
     if (!deleteTarget) return;
     setSubjects((prev) =>
       prev.filter((s) => s.subject_id !== deleteTarget.subject_id),
     );
     toast.success(
-      `Subject "${deleteTarget.subject_name}" removed from the list.`,
+      `Subject "${deleteTarget.subject_name ?? "subject"}" removed from the list.`,
     );
     setDeleteTarget(null);
   }, [deleteTarget]);
 
-  // ── Filtered & searched subjects ──────────────────────────────────────────
   const filteredSubjects = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return subjects.filter((s) => {
-      const matchesSem =
-        filterSem === "all" || String(s.semester) === filterSem;
+      const matchesSem = filterSem === "all" || String(s.semester) === filterSem;
+      const subjectName = (s.subject_name ?? "").toLowerCase();
+      const subjectCode = (s.subject_code ?? "").toLowerCase();
+      const departmentName = (s.department ?? "").toLowerCase();
       const matchesSearch =
         !q ||
-        s.subject_name.toLowerCase().includes(q) ||
-        s.subject_code.toLowerCase().includes(q) ||
-        s.department.toLowerCase().includes(q);
+        subjectName.includes(q) ||
+        subjectCode.includes(q) ||
+        departmentName.includes(q);
       return matchesSem && matchesSearch;
     });
   }, [subjects, filterSem, searchQuery]);
@@ -198,7 +184,6 @@ function AddSubject() {
         }
       />
 
-      {/* ── Add / Edit Form ────────────────────────────────────────────────── */}
       <Card className="max-w-3xl">
         <CardHeader>
           <CardTitle className="text-base">
@@ -210,7 +195,6 @@ function AddSubject() {
             onSubmit={handleSubmit(onSubmit)}
             className="grid grid-cols-1 gap-4 sm:grid-cols-2"
           >
-            {/* Subject Name — full width */}
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="subjectName">Subject Name</Label>
               <Input
@@ -225,7 +209,6 @@ function AddSubject() {
               )}
             </div>
 
-            {/* Subject Code */}
             <div className="space-y-1.5">
               <Label htmlFor="subjectCode">Subject Code</Label>
               <Input
@@ -240,7 +223,6 @@ function AddSubject() {
               )}
             </div>
 
-            {/* Credit */}
             <div className="space-y-1.5">
               <Label htmlFor="credit">Credit</Label>
               <Input
@@ -256,7 +238,6 @@ function AddSubject() {
               )}
             </div>
 
-            {/* Department */}
             <div className="space-y-1.5">
               <Label>Department</Label>
               <Select
@@ -283,7 +264,6 @@ function AddSubject() {
               )}
             </div>
 
-            {/* Semester */}
             <div className="space-y-1.5">
               <Label>Semester</Label>
               <Select
@@ -310,7 +290,6 @@ function AddSubject() {
               )}
             </div>
 
-            {/* Actions */}
             <div className="flex gap-2 sm:col-span-2 mt-2">
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting
@@ -331,31 +310,28 @@ function AddSubject() {
         </CardContent>
       </Card>
 
-      {/* ── All Subjects Section ───────────────────────────────────────────── */}
       <div className="mt-8 space-y-4">
-        {/* Section header */}
         <div className="flex flex-col gap-1">
           <h2 className="text-xl font-semibold tracking-tight">
             All Subjects
           </h2>
           <p className="text-sm text-muted-foreground">
-            {subjects.length === 0
-              ? "No subjects added yet. Use the form above to add one."
-              : `${subjects.length} subject${subjects.length !== 1 ? "s" : ""} added this session.`}
+            {isLoadingSubjects
+              ? "Loading subjects…"
+              : subjects.length === 0
+                ? "No subjects added yet. Use the form above to add one."
+                : `${subjects.length} subject${subjects.length !== 1 ? "s" : ""} in the database.`}
           </p>
         </div>
 
-        {/* Filter & Search Card */}
         <Card className="border-border shadow-sm">
           <CardContent className="p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              {/* Filter label */}
               <div className="hidden sm:flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
                 <SlidersHorizontal className="h-4 w-4" />
                 <span className="font-medium">Filters</span>
               </div>
 
-              {/* Search input */}
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                 <Input
@@ -367,7 +343,6 @@ function AddSubject() {
                 />
               </div>
 
-              {/* Semester filter */}
               <Select
                 value={filterSem}
                 onValueChange={(v) => setFilterSem(v)}
@@ -391,9 +366,22 @@ function AddSubject() {
           </CardContent>
         </Card>
 
-        {/* Table */}
-        {subjects.length === 0 ? (
-          /* Empty state */
+        {isLoadingSubjects ? (
+          <div className="rounded-2xl border bg-card p-12 shadow-sm">
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading subjects…
+            </div>
+          </div>
+        ) : subjectsError ? (
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-12 text-center shadow-sm">
+            <p className="text-sm font-semibold text-destructive">Unable to load subjects</p>
+            <p className="mt-1 text-xs text-muted-foreground">{subjectsError}</p>
+            <Button type="button" variant="outline" className="mt-4" onClick={() => void loadSubjects()}>
+              Retry
+            </Button>
+          </div>
+        ) : subjects.length === 0 ? (
           <div className="rounded-2xl border bg-card p-16 text-center shadow-sm">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
               <BookOpen className="h-6 w-6 text-muted-foreground" />
@@ -408,7 +396,6 @@ function AddSubject() {
             </p>
           </div>
         ) : filteredSubjects.length === 0 ? (
-          /* No filter match */
           <div className="rounded-2xl border bg-card p-12 text-center shadow-sm">
             <p className="text-sm font-semibold text-foreground">
               No subjects match your filters
@@ -418,7 +405,6 @@ function AddSubject() {
             </p>
           </div>
         ) : (
-          /* Subjects table */
           <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -453,51 +439,43 @@ function AddSubject() {
                       key={row.subject_id}
                       className="group transition-colors hover:bg-muted/30"
                     >
-                      {/* # */}
                       <td className="px-4 py-3.5 text-muted-foreground tabular-nums text-xs">
                         {idx + 1}
                       </td>
 
-                      {/* Subject Name */}
                       <td className="px-4 py-3.5">
                         <p className="font-medium text-foreground">
-                          {row.subject_name}
+                          {row.subject_name ?? "Unnamed subject"}
                         </p>
-                        {/* Show department on mobile */}
                         <p className="text-xs text-muted-foreground md:hidden">
-                          {row.department}
+                          {row.department ?? "Unassigned"}
                         </p>
                       </td>
 
-                      {/* Subject Code */}
                       <td className="px-4 py-3.5">
                         <span className="font-mono text-xs font-medium text-primary bg-primary/8 rounded-md px-1.5 py-0.5 border border-primary/15">
                           {row.subject_code}
                         </span>
                       </td>
 
-                      {/* Department */}
                       <td className="px-4 py-3.5 hidden md:table-cell">
                         <Badge variant="secondary" className="font-normal whitespace-nowrap">
-                          {row.department}
+                          {row.department ?? "Unassigned"}
                         </Badge>
                       </td>
 
-                      {/* Semester */}
                       <td className="px-4 py-3.5 text-center">
                         <span className="tabular-nums text-foreground font-medium">
                           {row.semester}
                         </span>
                       </td>
 
-                      {/* Credit */}
                       <td className="px-4 py-3.5 text-center">
                         <span className="tabular-nums text-foreground">
-                          {row.credit}
+                          {row.credit ?? 0}
                         </span>
                       </td>
 
-                      {/* Actions */}
                       <td className="px-4 py-3.5">
                         <div className="flex items-center justify-center gap-1">
                           <Button
@@ -531,7 +509,6 @@ function AddSubject() {
         )}
       </div>
 
-      {/* ── Delete Confirmation Dialog ─────────────────────────────────────── */}
       <Dialog
         open={!!deleteTarget}
         onOpenChange={(open) => {
@@ -548,7 +525,7 @@ function AddSubject() {
             </DialogTitle>
             <DialogDescription>
               Are you sure you want to remove{" "}
-              <strong>{deleteTarget?.subject_name}</strong> (
+              <strong>{deleteTarget?.subject_name ?? "this subject"}</strong> (
               {deleteTarget?.subject_code}) — Semester{" "}
               {deleteTarget?.semester}? This will remove it from the current
               list.

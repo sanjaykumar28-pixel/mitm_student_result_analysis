@@ -44,6 +44,7 @@ CREATE TABLE Login (
 CREATE TABLE Students (
     student_id INT AUTO_INCREMENT PRIMARY KEY,
     login_id INT NULL,
+    slno INT NULL COMMENT 'Sheet serial number; not a stable identity',
     usn VARCHAR(20) NOT NULL,
     student_name VARCHAR(100) NOT NULL,
     gender VARCHAR(10) NULL,

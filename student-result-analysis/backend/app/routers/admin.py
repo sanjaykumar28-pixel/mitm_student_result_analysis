@@ -10,6 +10,7 @@ from app.schemas import (
     AddStudentRequest,
     AddStudentResponse,
     AdminStudentRow,
+    AdminSubjectRow,
     BulkStudentImportResponse,
     AddSubjectRequest,
     AddSubjectResponse,
@@ -28,7 +29,7 @@ from app.services.bulk_students import (
 from app.services.import_results import ImportValidationError, persist_parsed_workbook
 from app.services.results import list_admin_results, list_admin_toppers
 from app.services.students import create_student_with_login
-from app.services.subjects import create_subject
+from app.services.subjects import create_subject, list_subjects
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -160,6 +161,14 @@ async def bulk_upload_students(
         sheet_name=parsed.sheet_name,
         imported_count=imported_count,
     )
+
+
+@router.get("/subjects", response_model=list[AdminSubjectRow])
+def list_subjects_route(
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> list[AdminSubjectRow]:
+    return list_subjects(db)
 
 
 @router.post("/subjects", response_model=AddSubjectResponse, status_code=201)

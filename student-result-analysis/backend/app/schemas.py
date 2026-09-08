@@ -141,6 +141,15 @@ class AddSubjectResponse(BaseModel):
     department: str | None
 
 
+class AdminSubjectRow(BaseModel):
+    subject_id: int
+    subject_name: str | None = None
+    subject_code: str
+    credit: int | None = None
+    semester: int
+    department: str | None = None
+
+
 class ImportErrorItemSchema(BaseModel):
     row: int
     usn: str | None = None

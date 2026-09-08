@@ -74,6 +74,14 @@ export interface AddSubjectResponse {
   department: string | null;
 }
 
+export interface AdminSubjectRow {
+  subject_id: number;
+  subject_name: string | null;
+  subject_code: string;
+  credit: number | null;
+  semester: number;
+  department: string | null;
+}
 
 export interface ImportStudentPreview {
   usn: string;
@@ -154,8 +162,8 @@ export const adminService = {
       })
       .then((r) => r.data);
   },
+  getSubjects: () => api.get<AdminSubjectRow[]>("/admin/subjects").then((r) => r.data),
   addSubject: (data: AddSubjectPayload) =>
-    // REQUIRED FROM BACKEND: POST /admin/subjects endpoint
     api.post<AddSubjectResponse>("/admin/subjects", data).then((r) => r.data),
   uploadExcel: (file: File, onProgress?: (percent: number) => void) => {
     const form = new FormData();

@@ -3,7 +3,26 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Subject
-from app.schemas import AddSubjectRequest, AddSubjectResponse
+from app.schemas import AddSubjectRequest, AddSubjectResponse, AdminSubjectRow
+
+
+def list_subjects(db: Session) -> list[AdminSubjectRow]:
+    subjects = (
+        db.query(Subject)
+        .order_by(Subject.semester.asc(), Subject.subject_name.asc(), Subject.subject_code.asc())
+        .all()
+    )
+    return [
+        AdminSubjectRow(
+            subject_id=subject.subject_id,
+            subject_name=subject.subject_name,
+            subject_code=subject.subject_code,
+            credit=subject.credits,
+            semester=subject.semester,
+            department=subject.department,
+        )
+        for subject in subjects
+    ]
 
 
 def create_subject(db: Session, body: AddSubjectRequest) -> AddSubjectResponse:

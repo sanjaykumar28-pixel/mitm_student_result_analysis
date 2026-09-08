@@ -38,7 +38,7 @@ class Student(Base):
         unique=True,
         nullable=True,
     )
-    
+    slno: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     usn: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     student_name: Mapped[str] = mapped_column(String(100), nullable=False)
     gender: Mapped[str | None] = mapped_column(String(10), nullable=True)
