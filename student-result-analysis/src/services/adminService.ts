@@ -17,6 +17,7 @@ export interface AddStudentPayload {
   email: string;
   department: string;
   semester: number;
+  gender: string;
   password: string;
 }
 
@@ -27,7 +28,18 @@ export interface AddStudentResponse {
   email: string;
   department: string;
   semester: number | null;
+  gender: string | null;
   role: "student";
+}
+
+export interface AdminStudentRow {
+  student_id: number;
+  student_name: string;
+  usn: string;
+  email: string | null;
+  department: string;
+  semester: number | null;
+  gender: string | null;
 }
 
 export interface BulkStudentError {
@@ -129,6 +141,7 @@ export const adminService = {
   getDashboardStats: () => api.get("/admin/stats").then((r) => r.data),
   addStudent: (data: AddStudentPayload) =>
     api.post<AddStudentResponse>("/admin/students", data).then((r) => r.data),
+  getStudents: () => api.get<AdminStudentRow[]>("/admin/students").then((r) => r.data),
   uploadStudents: (file: File, onProgress?: (percent: number) => void) => {
     const form = new FormData();
     form.append("file", file);

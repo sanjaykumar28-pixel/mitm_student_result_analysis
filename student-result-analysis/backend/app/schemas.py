@@ -56,6 +56,7 @@ class AddStudentRequest(BaseModel):
     email: EmailStr
     department: str = Field(min_length=1, max_length=80)
     semester: int = Field(ge=1, le=8)
+    gender: str | None = Field(default=None, max_length=10)
     password: str = Field(min_length=6, max_length=64)
 
     @field_validator("email")
@@ -71,10 +72,10 @@ class AddStudentRequest(BaseModel):
             raise ValueError("USN must match the format 4MH24MC001")
         return normalized
 
-    @field_validator("name", "department")
+    @field_validator("name", "department", "gender")
     @classmethod
-    def strip_text(cls, value: str) -> str:
-        return value.strip()
+    def strip_text(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
 
 
 class AddStudentResponse(BaseModel):
@@ -84,7 +85,18 @@ class AddStudentResponse(BaseModel):
     email: EmailStr
     department: str
     semester: int | None
+    gender: str | None = None
     role: Role = "student"
+
+
+class AdminStudentRow(BaseModel):
+    student_id: int
+    student_name: str
+    usn: str
+    email: EmailStr | None = None
+    department: str
+    semester: int | None
+    gender: str | None = None
 
 
 class BulkStudentError(BaseModel):

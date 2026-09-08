@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import logging
 
 from app.database import get_db
 from app.deps import require_admin
-from app.models import Login
+from app.models import Login, Student
 from app.schemas import (
     AddStudentRequest,
     AddStudentResponse,
+    AdminStudentRow,
     BulkStudentImportResponse,
     AddSubjectRequest,
     AddSubjectResponse,
@@ -73,6 +74,31 @@ def add_student(
     _: Login = Depends(require_admin),
 ) -> AddStudentResponse:
     return create_student_with_login(db, body)
+
+
+@router.get("/students", response_model=list[AdminStudentRow])
+def list_students(
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> list[AdminStudentRow]:
+    students = (
+        db.query(Student)
+        .options(joinedload(Student.login))
+        .order_by(Student.student_name.asc(), Student.usn.asc())
+        .all()
+    )
+    return [
+        AdminStudentRow(
+            student_id=student.student_id,
+            student_name=student.student_name,
+            usn=student.usn,
+            email=student.login.email if student.login else None,
+            department=student.department,
+            semester=student.semester,
+            gender=student.gender,
+        )
+        for student in students
+    ]
 
 
 @router.post("/students/bulk-upload", response_model=BulkStudentImportResponse)

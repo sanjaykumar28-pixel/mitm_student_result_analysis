@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useRef, type DragEvent } from "react";
+import { useCallback, useEffect, useState, useRef, type DragEvent } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { cn } from "@/lib/utils";
 import { departments } from "@/data/mockData";
-import { adminService, type BulkStudentImportResponse } from "@/services/adminService";
+import { adminService, type AdminStudentRow, type BulkStudentImportResponse } from "@/services/adminService";
 import { getApiErrorItems, getApiErrorMessage } from "@/services/api";
 
 export const Route = createFileRoute("/admin/add-student")({
@@ -36,9 +36,6 @@ const schema = z.object({
   email: z.string().trim().email("Valid email required").max(255),
   department: z.string().min(1, "Department required"),
   semester: z.string().min(1, "Semester required"),
-  // NOTE: gender is collected in the UI but the current backend /admin/students
-  // endpoint does not accept a gender field. The backend must be updated to
-  // add a gender column before it can be persisted in the database.
   gender: z.enum(["Male", "Female", "Other"], { required_error: "Gender required" }),
   password: z.string().min(6, "Password must be at least 6 characters").max(64),
 });
@@ -49,7 +46,9 @@ const MAX_BYTES = 10 * 1024 * 1024;
 
 function AddStudent() {
   // ── Manual form state ────────────────────────────────────────────────────────
-  const [addedStudents, setAddedStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<AdminStudentRow[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(true);
+  const [studentsError, setStudentsError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -60,6 +59,22 @@ function AddStudent() {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
+  const loadStudents = useCallback(async () => {
+    setStudentsLoading(true);
+    setStudentsError(null);
+    try {
+      setStudents(await adminService.getStudents());
+    } catch (error) {
+      setStudentsError(getApiErrorMessage(error, "Could not load students."));
+    } finally {
+      setStudentsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStudents();
+  }, [loadStudents]);
+
   const onSubmit = async (data: FormValues) => {
     try {
       const created = await adminService.addStudent({
@@ -68,21 +83,11 @@ function AddStudent() {
         email: data.email,
         department: data.department,
         semester: Number(data.semester),
+        gender: data.gender,
         password: data.password,
-        // gender omitted: backend /admin/students does not support it yet.
       });
       toast.success(`${created.name} (${created.usn}) can now sign in as a student.`);
-      setAddedStudents((prev) => [
-        {
-          usn: data.studentId,
-          name: data.name,
-          email: data.email,
-          department: data.department,
-          semester: data.semester,
-          gender: data.gender,
-        },
-        ...prev,
-      ]);
+      await loadStudents();
       reset();
     } catch (error) {
       const message = getApiErrorMessage(error, "Could not add student.");
@@ -155,6 +160,7 @@ function AddStudent() {
       setExcelProgress(100);
       setExcelResult(data);
       toast.success(data.message);
+      await loadStudents();
     } catch (error) {
       setExcelProgress(0);
       setExcelRowErrors(getApiErrorItems(error));
@@ -229,10 +235,7 @@ function AddStudent() {
               {errors.semester && <p className="text-xs text-destructive">{errors.semester.message}</p>}
             </div>
 
-            {/* Gender — NEW FIELD
-                NOTE: Gender is validated and shown in the session Student List below,
-                but is NOT sent to the backend API (/admin/students) because the current
-                backend does not have a gender column. Update the backend to persist it. */}
+            {/* Gender */}
             <div className="space-y-1.5">
               <Label>Gender</Label>
               <Select
@@ -409,23 +412,26 @@ function AddStudent() {
         </CardContent>
       </Card>
 
-      {/* ── 3. In-session Student List ────────────────────────────────────── */}
+      {/* ── 3. Student List ───────────────────────────────────────────────── */}
       <div className="mt-6 max-w-3xl">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Student List</CardTitle>
           </CardHeader>
           <CardContent>
-            {addedStudents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No students added yet.</p>
+            {studentsLoading ? (
+              <p className="text-sm text-muted-foreground">Loading students…</p>
+            ) : studentsError ? (
+              <p className="text-sm text-destructive">{studentsError}</p>
+            ) : students.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No students found.</p>
             ) : (
               <div className="rounded-md border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="border-b bg-muted/50 text-muted-foreground">
                     <tr>
-                      <th className="h-10 px-4 text-left font-medium">#</th>
-                      <th className="h-10 px-4 text-left font-medium">Student ID</th>
                       <th className="h-10 px-4 text-left font-medium">Full Name</th>
+                      <th className="h-10 px-4 text-left font-medium">USN</th>
                       <th className="h-10 px-4 text-left font-medium">Email</th>
                       <th className="h-10 px-4 text-left font-medium">Department</th>
                       <th className="h-10 px-4 text-left font-medium">Semester</th>
@@ -433,18 +439,17 @@ function AddStudent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {addedStudents.map((student, index) => (
+                    {students.map((student) => (
                       <tr
-                        key={index}
+                        key={student.student_id}
                         className="border-b last:border-0 hover:bg-muted/50 transition-colors"
                       >
-                        <td className="p-4 align-middle">{index + 1}</td>
-                        <td className="p-4 align-middle font-medium">{student.usn}</td>
-                        <td className="p-4 align-middle">{student.name}</td>
-                        <td className="p-4 align-middle text-muted-foreground">{student.email}</td>
+                        <td className="p-4 align-middle font-medium">{student.student_name}</td>
+                        <td className="p-4 align-middle font-mono text-xs">{student.usn}</td>
+                        <td className="p-4 align-middle text-muted-foreground">{student.email ?? "—"}</td>
                         <td className="p-4 align-middle">{student.department}</td>
-                        <td className="p-4 align-middle">{student.semester}</td>
-                        <td className="p-4 align-middle">{student.gender}</td>
+                        <td className="p-4 align-middle">{student.semester ?? "—"}</td>
+                        <td className="p-4 align-middle">{student.gender ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>

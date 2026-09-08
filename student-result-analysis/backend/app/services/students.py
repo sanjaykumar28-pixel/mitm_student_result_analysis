@@ -48,6 +48,7 @@ def create_student_with_login(db: Session, body: AddStudentRequest) -> AddStuden
             login_id=login.login_id,
             usn=usn,
             student_name=body.name,
+                gender=body.gender,
             department=body.department,
             semester=body.semester,
         )
@@ -68,5 +69,6 @@ def create_student_with_login(db: Session, body: AddStudentRequest) -> AddStuden
         email=login.email,
         department=student.department,
         semester=student.semester,
+        gender=student.gender,
         role="student",
     )
