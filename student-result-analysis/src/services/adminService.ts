@@ -30,6 +30,21 @@ export interface AddStudentResponse {
   role: "student";
 }
 
+export interface BulkStudentError {
+  row: number;
+  usn: string | null;
+  error: string;
+}
+
+export interface BulkStudentImportResponse {
+  message: string;
+  sheet_name: string;
+  imported_count: number;
+  duplicate_usns: string[];
+  missing_required_columns: string[];
+  invalid_rows: BulkStudentError[];
+}
+
 export interface AddSubjectPayload {
   subject_name: string;
   subject_code: string;
@@ -114,6 +129,18 @@ export const adminService = {
   getDashboardStats: () => api.get("/admin/stats").then((r) => r.data),
   addStudent: (data: AddStudentPayload) =>
     api.post<AddStudentResponse>("/admin/students", data).then((r) => r.data),
+  uploadStudents: (file: File, onProgress?: (percent: number) => void) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api
+      .post<BulkStudentImportResponse>("/admin/students/bulk-upload", form, {
+        onUploadProgress: (event) => {
+          if (!onProgress || !event.total) return;
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        },
+      })
+      .then((r) => r.data);
+  },
   addSubject: (data: AddSubjectPayload) =>
     // REQUIRED FROM BACKEND: POST /admin/subjects endpoint
     api.post<AddSubjectResponse>("/admin/subjects", data).then((r) => r.data),

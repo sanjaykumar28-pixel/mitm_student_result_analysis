@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { cn } from "@/lib/utils";
 import { departments } from "@/data/mockData";
-import { adminService, type ImportUploadResponse } from "@/services/adminService";
+import { adminService, type BulkStudentImportResponse } from "@/services/adminService";
 import { getApiErrorItems, getApiErrorMessage } from "@/services/api";
 
 export const Route = createFileRoute("/admin/add-student")({
@@ -95,12 +95,12 @@ function AddStudent() {
     }
   };
 
-  // ── Excel upload state (reuses adminService.uploadExcel exactly as admin.upload-excel.tsx) ──
+  // ── Bulk student workbook upload state ─────────────────────────────────────
   const excelInputRef = useRef<HTMLInputElement>(null);
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [excelProgress, setExcelProgress] = useState(0);
   const [excelSubmitting, setExcelSubmitting] = useState(false);
-  const [excelResult, setExcelResult] = useState<ImportUploadResponse | null>(null);
+  const [excelResult, setExcelResult] = useState<BulkStudentImportResponse | null>(null);
   const [excelRowErrors, setExcelRowErrors] = useState<
     Array<{ row?: number; usn?: string | null; subject?: string | null; error: string }>
   >([]);
@@ -111,10 +111,9 @@ function AddStudent() {
     if (
       !name.endsWith(".xlsx") &&
       !name.endsWith(".xlsm") &&
-      !name.endsWith(".xls") &&
-      !name.endsWith(".csv")
+      !name.endsWith(".xlsm")
     ) {
-      toast.error("Choose an Excel file (.xlsx).");
+      toast.error("Choose an Excel workbook (.xlsx or .xlsm).");
       return;
     }
     if (f.size > MAX_BYTES) {
@@ -152,12 +151,10 @@ function AddStudent() {
     setExcelResult(null);
     setExcelRowErrors([]);
     try {
-      const data = await adminService.uploadExcel(excelFile, setExcelProgress);
+      const data = await adminService.uploadStudents(excelFile, setExcelProgress);
       setExcelProgress(100);
       setExcelResult(data);
-      toast.success(
-        `Imported ${data.students_upserted} students and ${data.marks_upserted} mark rows. Credits were read from the Subjects table.`,
-      );
+      toast.success(data.message);
     } catch (error) {
       setExcelProgress(0);
       setExcelRowErrors(getApiErrorItems(error));
@@ -272,14 +269,14 @@ function AddStudent() {
         </CardContent>
       </Card>
 
-      {/* ── 2. Excel Bulk Upload ──────────────────────────────────────────── */}
+      {/* ── 2. Student Details Bulk Upload ────────────────────────────────── */}
       <Card className="mt-6 max-w-3xl">
         <CardHeader>
           <CardTitle className="text-base">Upload Excel Sheet</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Upload an Excel file with student details. The data will be added to the system automatically.
+            Upload student details with USN, student name, email, department, semester, and initial password.
           </p>
 
           {/* Drag-and-drop zone */}
@@ -296,11 +293,11 @@ function AddStudent() {
               <UploadCloud className="h-7 w-7" />
             </div>
             <p className="mt-4 font-medium">Drag &amp; drop your Excel file here</p>
-            <p className="mt-1 text-sm text-muted-foreground">.xlsx / .xls / .csv — up to 10 MB</p>
+            <p className="mt-1 text-sm text-muted-foreground">.xlsx / .xlsm — up to 10 MB</p>
             <input
               ref={excelInputRef}
               type="file"
-              accept=".xlsx,.xlsm,.xls,.csv"
+              accept=".xlsx,.xlsm"
               hidden
               onChange={(e) => e.target.files?.[0] && selectExcelFile(e.target.files[0])}
             />
@@ -402,56 +399,11 @@ function AddStudent() {
             </div>
           )}
 
-          {/* Success summary table */}
+          {/* Success summary */}
           {excelResult && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{excelResult.students_upserted} students</Badge>
-                <Badge variant="secondary">{excelResult.subjects_upserted} subjects</Badge>
-                <Badge variant="secondary">{excelResult.marks_upserted} mark rows</Badge>
-                <Badge variant="secondary">{excelResult.results_upserted} results</Badge>
-                <Badge variant="secondary">
-                  {excelResult.students.reduce((sum, s) => sum + s.credits_registered, 0)} credits registered
-                </Badge>
-                <Badge variant="secondary">
-                  {excelResult.students.reduce((sum, s) => sum + s.credits_earned, 0)} credits earned
-                </Badge>
-                <Badge variant="outline">{excelResult.department} · Sem {excelResult.semester}</Badge>
-                {excelResult.academic_year && (
-                  <Badge variant="outline">{excelResult.academic_year}</Badge>
-                )}
-              </div>
-              <p className="text-sm font-semibold text-muted-foreground">
-                Imported from {excelResult.sheet_name} ({excelResult.students.length} students)
-              </p>
-              <div className="overflow-hidden rounded-xl border bg-card">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>USN</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Avg</TableHead>
-                      <TableHead className="text-right">Credits</TableHead>
-                      <TableHead className="text-right">SGPA</TableHead>
-                      <TableHead className="text-right">CGPA</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {excelResult.students.map((s) => (
-                      <TableRow key={s.usn}>
-                        <TableCell className="font-mono text-xs">{s.usn}</TableCell>
-                        <TableCell className="font-medium">{s.name}</TableCell>
-                        <TableCell className="text-right">{s.grand_total}</TableCell>
-                        <TableCell className="text-right">{s.average_marks}</TableCell>
-                        <TableCell className="text-right">{s.credits_earned}/{s.credits_registered}</TableCell>
-                        <TableCell className="text-right">{s.sgpa.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">{s.cgpa.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{excelResult.imported_count} students imported</Badge>
+              <Badge variant="outline">{excelResult.sheet_name}</Badge>
             </div>
           )}
         </CardContent>

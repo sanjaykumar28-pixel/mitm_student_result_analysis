@@ -9,6 +9,7 @@ from app.models import Login
 from app.schemas import (
     AddStudentRequest,
     AddStudentResponse,
+    BulkStudentImportResponse,
     AddSubjectRequest,
     AddSubjectResponse,
     AdminProfileResponse,
@@ -18,6 +19,11 @@ from app.schemas import (
     ImportUploadResponse,
 )
 from app.services.excel_parser import parse_result_workbook
+from app.services.bulk_students import (
+    BulkImportValidationError,
+    parse_student_workbook,
+    persist_bulk_students,
+)
 from app.services.import_results import ImportValidationError, persist_parsed_workbook
 from app.services.results import list_admin_results, list_admin_toppers
 from app.services.students import create_student_with_login
@@ -67,6 +73,67 @@ def add_student(
     _: Login = Depends(require_admin),
 ) -> AddStudentResponse:
     return create_student_with_login(db, body)
+
+
+@router.post("/students/bulk-upload", response_model=BulkStudentImportResponse)
+async def bulk_upload_students(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> BulkStudentImportResponse:
+    filename = file.filename or "upload.xlsx"
+    content = await file.read()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "The uploaded file is empty",
+                "sheet_name": "",
+                "imported_count": 0,
+                "duplicate_usns": [],
+                "missing_required_columns": [],
+                "invalid_rows": [],
+            },
+        )
+    try:
+        parsed = parse_student_workbook(content, filename)
+        imported_count = persist_bulk_students(db, parsed)
+    except ValueError as exc:
+        logger.warning("Bulk student import rejected: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": str(exc),
+                "sheet_name": "",
+                "imported_count": 0,
+                "duplicate_usns": [],
+                "missing_required_columns": [],
+                "invalid_rows": [],
+            },
+        ) from exc
+    except BulkImportValidationError as exc:
+        logger.warning("Bulk student import row errors: %s", exc.message)
+        parsed = exc.parsed
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": exc.message,
+                "sheet_name": parsed.sheet_name,
+                "imported_count": 0,
+                "duplicate_usns": parsed.duplicate_usns,
+                "missing_required_columns": parsed.missing_required_columns,
+                "invalid_rows": [
+                    {"row": item.row, "usn": item.usn, "error": item.error}
+                    for item in parsed.errors
+                ],
+            },
+        ) from exc
+
+    return BulkStudentImportResponse(
+        message=f"Imported {imported_count} students successfully",
+        sheet_name=parsed.sheet_name,
+        imported_count=imported_count,
+    )
 
 
 @router.post("/subjects", response_model=AddSubjectResponse, status_code=201)

@@ -28,6 +28,9 @@ export function getApiErrorItems(error: unknown): Array<{ row?: number; usn?: st
   if (detail && typeof detail === "object" && Array.isArray(detail.errors)) {
     return detail.errors;
   }
+  if (detail && typeof detail === "object" && Array.isArray(detail.invalid_rows)) {
+    return detail.invalid_rows;
+  }
   return [];
 }
 

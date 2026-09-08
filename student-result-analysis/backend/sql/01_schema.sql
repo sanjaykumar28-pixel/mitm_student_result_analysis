@@ -44,20 +44,22 @@ CREATE TABLE Login (
 CREATE TABLE Students (
     student_id INT AUTO_INCREMENT PRIMARY KEY,
     login_id INT NULL,
-    slno INT NULL COMMENT 'Sheet serial number; not a stable identity',
     usn VARCHAR(20) NOT NULL,
     student_name VARCHAR(100) NOT NULL,
+    gender VARCHAR(10) NULL,
     department VARCHAR(80) NOT NULL DEFAULT 'MCA',
     semester TINYINT UNSIGNED NULL COMMENT 'Latest semester seen in imports',
     section VARCHAR(10) NULL,
 
-    CONSTRAINT uq_students_usn UNIQUE (usn),
     CONSTRAINT uq_students_login UNIQUE (login_id),
-    CONSTRAINT fk_student_login
+    CONSTRAINT fk_students_login
         FOREIGN KEY (login_id) REFERENCES Login(login_id)
         ON DELETE SET NULL
-        ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ON UPDATE CASCADE,
+    CONSTRAINT uq_students_usn UNIQUE (usn)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 -- Subject catalogue. Excel provides codes only, not names or credits.
 CREATE TABLE Subjects (

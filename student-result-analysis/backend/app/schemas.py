@@ -87,6 +87,21 @@ class AddStudentResponse(BaseModel):
     role: Role = "student"
 
 
+class BulkStudentError(BaseModel):
+    row: int
+    usn: str | None = None
+    error: str
+
+
+class BulkStudentImportResponse(BaseModel):
+    message: str
+    sheet_name: str
+    imported_count: int
+    duplicate_usns: list[str] = Field(default_factory=list)
+    missing_required_columns: list[str] = Field(default_factory=list)
+    invalid_rows: list[BulkStudentError] = Field(default_factory=list)
+
+
 class AddSubjectRequest(BaseModel):
     subject_name: str = Field(min_length=2, max_length=100)
     subject_code: str = Field(min_length=2, max_length=20)
