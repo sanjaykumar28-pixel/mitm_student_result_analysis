@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState, useRef, type DragEvent } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo, type DragEvent } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { UploadCloud, FileSpreadsheet, CheckCircle2, X } from "lucide-react";
+import { UploadCloud, FileSpreadsheet, CheckCircle2, X, Search, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,17 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { cn } from "@/lib/utils";
 import { departments } from "@/data/mockData";
@@ -49,6 +60,8 @@ function AddStudent() {
   const [students, setStudents] = useState<AdminStudentRow[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [studentsError, setStudentsError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  
   const {
     register,
     handleSubmit,
@@ -74,6 +87,26 @@ function AddStudent() {
   useEffect(() => {
     void loadStudents();
   }, [loadStudents]);
+
+  const filteredStudents = useMemo(() => {
+    if (!searchQuery.trim()) return students;
+    const q = searchQuery.toLowerCase();
+    return students.filter((s) => {
+      return (
+        s.student_name?.toLowerCase().includes(q) ||
+        s.usn?.toLowerCase().includes(q) ||
+        s.email?.toLowerCase().includes(q) ||
+        s.department?.toLowerCase().includes(q) ||
+        String(s.semester ?? "").toLowerCase().includes(q) ||
+        s.gender?.toLowerCase().includes(q)
+      );
+    });
+  }, [students, searchQuery]);
+
+  const handleDeleteStudent = (studentId: number) => {
+    setStudents((prev) => prev.filter((s) => s.student_id !== studentId));
+    toast.success("Student removed from the current list.");
+  };
 
   const onSubmit = async (data: FormValues) => {
     try {
@@ -415,8 +448,26 @@ function AddStudent() {
       {/* ── 3. Student List ───────────────────────────────────────────────── */}
       <div className="mt-6 w-full">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Student List</CardTitle>
+          <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">Student List</CardTitle>
+              {!studentsLoading && !studentsError && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {searchQuery.trim()
+                    ? `Showing ${filteredStudents.length} of ${students.length} students`
+                    : `${students.length} Students`}
+                </p>
+              )}
+            </div>
+            <div className="relative max-w-xs w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search students..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
           </CardHeader>
           <CardContent>
             {studentsLoading ? (
@@ -425,6 +476,10 @@ function AddStudent() {
               <p className="text-sm text-destructive">{studentsError}</p>
             ) : students.length === 0 ? (
               <p className="text-sm text-muted-foreground">No students found.</p>
+            ) : filteredStudents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No students found matching your search. Try a different name, USN, email, or department.
+              </p>
             ) : (
               <div className="rounded-md border overflow-x-auto">
                 <table className="w-full text-sm">
@@ -437,10 +492,11 @@ function AddStudent() {
                       <th className="h-10 px-4 text-left font-medium">Department</th>
                       <th className="h-10 px-4 text-left font-medium">Semester</th>
                       <th className="h-10 px-4 text-left font-medium">Gender</th>
+                      <th className="h-10 px-4 text-center font-medium w-20">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map((student, index) => (
+                    {filteredStudents.map((student, index) => (
                       <tr
                         key={student.student_id}
                         className="border-b last:border-0 hover:bg-muted/50 transition-colors"
@@ -452,6 +508,34 @@ function AddStudent() {
                         <td className="p-4 align-middle">{student.department}</td>
                         <td className="p-4 align-middle">{student.semester ?? "—"}</td>
                         <td className="p-4 align-middle">{student.gender ?? "—"}</td>
+                        <td className="p-4 align-middle text-center">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Student?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to remove this student from the current list?<br /><br />
+                                  <strong>Student Name:</strong> {student.student_name}<br />
+                                  <strong>USN:</strong> {student.usn}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => handleDeleteStudent(student.student_id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Remove
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
