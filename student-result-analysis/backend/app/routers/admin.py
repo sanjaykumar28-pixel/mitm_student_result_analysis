@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 import logging
@@ -17,6 +17,7 @@ from app.schemas import (
     AdminProfileResponse,
     AdminProfileUpdate,
     AdminResultsResponse,
+    AdminResultDetailResponse,
     AdminToppersResponse,
     ImportUploadResponse,
 )
@@ -27,7 +28,7 @@ from app.services.bulk_students import (
     persist_bulk_students,
 )
 from app.services.import_results import ImportValidationError, persist_parsed_workbook
-from app.services.results import list_admin_results, list_admin_toppers
+from app.services.results import get_admin_result_details, list_admin_results, list_admin_toppers
 from app.services.students import create_student_with_login
 from app.services.subjects import create_subject, list_subjects
 
@@ -193,6 +194,37 @@ def get_admin_results(
         dept = None
     q = search.strip() if search and search.strip() else None
     return list_admin_results(db, department=dept, semester=semester, search=q)
+
+
+@router.get("/results/{usn}", response_model=AdminResultDetailResponse)
+def get_admin_student_results(
+    usn: str = Path(..., min_length=10, max_length=20),
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminResultDetailResponse:
+    try:
+        return get_admin_result_details(db, usn=usn.strip().upper())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/results/{usn}/{semester}", response_model=AdminResultDetailResponse)
+def get_admin_student_semester_result(
+    usn: str = Path(..., min_length=10, max_length=20),
+    semester: int = Path(..., ge=1, le=8),
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminResultDetailResponse:
+    try:
+        response = get_admin_result_details(db, usn=usn.strip().upper(), semester=semester)
+        if not response.semesters:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Result not found for this student and semester",
+            )
+        return response
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.get("/toppers", response_model=AdminToppersResponse)

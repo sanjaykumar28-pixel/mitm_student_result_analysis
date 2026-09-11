@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { AdminResultRow } from "@/services/adminService";
-import { gradePoint, type Grade } from "@/data/mockData";
+import {
+  adminService,
+  type AdminResultDetailResponse,
+  type AdminResultRow,
+  type AdminResultSemester,
+  type AdminResultSubject,
+} from "@/services/adminService";
+import { getApiErrorMessage } from "@/services/api";
+import { toast } from "sonner";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -39,97 +46,11 @@ function CgpaBadge({ value }: { value: number | null | undefined }) {
   );
 }
 
-// ── Dummy Subject Data for UI Testing ─────────────────────────────────────────
-const dummySubjects = [
-  {
-    code: "MCA101",
-    name: "Mathematics for Computer Science",
-    credits: 4,
-    grade: "A",
-    internal_marks: 42,
-    external_marks: 44,
-    total_marks: 86,
-  },
-  {
-    code: "MCA102",
-    name: "Problem Solving using Python",
-    credits: 4,
-    grade: "A+",
-    internal_marks: 45,
-    external_marks: 47,
-    total_marks: 92,
-  },
-  {
-    code: "MCA103",
-    name: "Computer Organization",
-    credits: 4,
-    grade: "A",
-    internal_marks: 43,
-    external_marks: 42,
-    total_marks: 85,
-  },
-  {
-    code: "MCA104",
-    name: "Web Technologies",
-    credits: 4,
-    grade: "A",
-    internal_marks: 41,
-    external_marks: 43,
-    total_marks: 84,
-  },
-  {
-    code: "MCA105",
-    name: "Programming in JAVA",
-    credits: 4,
-    grade: "B+",
-    internal_marks: 38,
-    external_marks: 37,
-    total_marks: 75,
-  },
-  {
-    code: "MCA106",
-    name: "Database Management Systems",
-    credits: 4,
-    grade: "A",
-    internal_marks: 42,
-    external_marks: 41,
-    total_marks: 83,
-  },
-];
-
 // ── Standalone Print Component (Outside Portal so browser print works 100%) ──
-function AdminPrintCard({ row }: { row: AdminResultRow }) {
-  const existingSubjects = (row as any).subjects || [];
-  const displaySubjects = existingSubjects.length > 0 ? existingSubjects : dummySubjects;
-
-  const getSubjectCode = (s: any) => s.code || s.subject_code || "—";
-  const getSubjectName = (s: any) => s.name || s.subject_name || "—";
-  const getSubjectCredits = (s: any) => s.credits ?? s.credit ?? 0;
-  const getCie = (s: any) => s.internal_marks ?? s.cie ?? "—";
-  const getSee = (s: any) => s.external_marks ?? s.see ?? "—";
-  const getTotal = (s: any) => s.total_marks ?? s.marks ?? "—";
-  const getGrade = (s: any) => s.grade || "—";
-  const getGradePoint = (s: any) => {
-    if (s.grade && s.grade in gradePoint) return gradePoint[s.grade as Grade];
-    if (s.grade_point != null) return s.grade_point;
-    return "—";
-  };
-  const getCreditsEarned = (s: any) => {
-    if (s.credits_earned != null) return s.credits_earned;
-    const creds = getSubjectCredits(s);
-    return s.grade !== "F" ? creds : 0;
-  };
-
-  const totalCreditsReg = displaySubjects.reduce((a: number, s: any) => a + getSubjectCredits(s), 0);
-  const totalCreditsEar = row.credits_earned ?? displaySubjects.reduce((a: number, s: any) => a + getCreditsEarned(s), 0);
-
-  const totalPoints =
-    row.sgpa != null && row.credits_earned != null
-      ? (row.sgpa * row.credits_earned).toFixed(1)
-      : displaySubjects.reduce((a: number, s: any) => {
-          const gp = getGradePoint(s);
-          return a + (typeof gp === "number" ? gp * getSubjectCredits(s) : 0);
-        }, 0).toFixed(1);
+function AdminPrintCard({ row, detail }: { row: AdminResultRow; detail: AdminResultSemester }) {
+  const displaySubjects = detail.subjects;
+  const totalCreditsReg = displaySubjects.reduce((sum, subject) => sum + (subject.credits ?? 0), 0);
+  const totalCreditsEar = detail.total_credits;
 
   return (
     <div id="admin-print-card" className="hidden print:block text-black bg-white">
@@ -188,27 +109,20 @@ function AdminPrintCard({ row }: { row: AdminResultRow }) {
             </tr>
           </thead>
           <tbody>
-            {displaySubjects.map((s: any, idx: number) => {
-              const code = getSubjectCode(s);
-              const name = getSubjectName(s);
-              const credReg = getSubjectCredits(s);
-              const cie = getCie(s);
-              const see = getSee(s);
-              const tot = getTotal(s);
-              const gp = getGradePoint(s);
-              const grd = getGrade(s);
-              const credEar = getCreditsEarned(s);
+            {displaySubjects.map((subject, idx) => {
+              const credReg = subject.credits ?? null;
+              const credEar = subject.grade !== "F" ? credReg : 0;
 
               return (
-                <tr key={code + idx}>
+                <tr key={subject.subject_code + idx}>
                   <td className="border border-black p-2 text-center">{idx + 1}</td>
-                  <td className="border border-black p-2 text-center font-mono">{code}</td>
-                  <td className="border border-black p-2 text-left uppercase break-words leading-tight">{name}</td>
-                  <td className="border border-black p-2 text-center">{cie}</td>
-                  <td className="border border-black p-2 text-center">{see}</td>
-                  <td className="border border-black p-2 text-center">{tot}</td>
-                  <td className="border border-black p-2 text-center">{gp}</td>
-                  <td className="border border-black p-2 text-center font-bold">{grd}</td>
+                  <td className="border border-black p-2 text-center font-mono">{subject.subject_code}</td>
+                  <td className="border border-black p-2 text-left uppercase break-words leading-tight">{subject.subject_name}</td>
+                  <td className="border border-black p-2 text-center">{subject.internal_marks ?? "—"}</td>
+                  <td className="border border-black p-2 text-center">{subject.external_marks ?? "—"}</td>
+                  <td className="border border-black p-2 text-center">{subject.total_marks ?? "—"}</td>
+                  <td className="border border-black p-2 text-center">{subject.grade_point ?? "—"}</td>
+                  <td className="border border-black p-2 text-center font-bold">{subject.grade ?? "—"}</td>
                   <td className="border border-black p-2 text-center">{credReg}</td>
                   <td className="border border-black p-2 text-center">{credEar}</td>
                 </tr>
@@ -224,14 +138,14 @@ function AdminPrintCard({ row }: { row: AdminResultRow }) {
             <tr className="font-bold">
               <td className="border border-black p-1.5 text-center" colSpan={8}>SGPA</td>
               <td className="border border-black p-1.5 text-center" colSpan={2}>
-                {row.sgpa != null ? Number(row.sgpa).toFixed(2) : "—"}
+                {detail.sgpa != null ? Number(detail.sgpa).toFixed(2) : "—"}
               </td>
             </tr>
             {/* CGPA Row */}
             <tr className="font-bold">
               <td className="border border-black p-1.5 text-center" colSpan={8}>CGPA</td>
               <td className="border border-black p-1.5 text-center" colSpan={2}>
-                {row.cgpa != null ? Number(row.cgpa).toFixed(2) : "—"}
+                {detail.cgpa != null ? Number(detail.cgpa).toFixed(2) : "—"}
               </td>
             </tr>
           </tbody>
@@ -240,9 +154,9 @@ function AdminPrintCard({ row }: { row: AdminResultRow }) {
 
       {/* Total Points / SGPA / CGPA Summary Line */}
       <div className="flex justify-end gap-8 text-xs font-bold my-5 py-2.5 border-y border-black/40">
-        <div>Total Points : <span className="font-mono font-normal">{totalPoints}</span></div>
-        <div>SGPA : <span className="font-mono font-normal">{row.sgpa != null ? Number(row.sgpa).toFixed(2) : "—"}</span></div>
-        <div>CGPA : <span className="font-mono font-normal">{row.cgpa != null ? Number(row.cgpa).toFixed(2) : "—"}</span></div>
+        <div>Total Points : <span className="font-mono font-normal">{detail.total_points.toFixed(2)}</span></div>
+        <div>SGPA : <span className="font-mono font-normal">{detail.sgpa != null ? Number(detail.sgpa).toFixed(2) : "—"}</span></div>
+        <div>CGPA : <span className="font-mono font-normal">{detail.cgpa != null ? Number(detail.cgpa).toFixed(2) : "—"}</span></div>
       </div>
 
       {/* Footer Signatures */}
@@ -266,45 +180,26 @@ function AdminPrintCard({ row }: { row: AdminResultRow }) {
 // ── Result Sheet Modal ────────────────────────────────────────────────────────
 function ResultSheetModal({
   row,
+  detail,
+  selectedSemester,
+  onSemesterChange,
+  loading,
+  error,
   open,
   onClose,
 }: {
   row: AdminResultRow | null;
+  detail: AdminResultDetailResponse | null;
+  selectedSemester: number | null;
+  onSemesterChange: (semester: number) => void;
+  loading: boolean;
+  error: string | null;
   open: boolean;
   onClose: () => void;
 }) {
   if (!row) return null;
-
-  const existingSubjects = (row as any).subjects || [];
-  const displaySubjects = existingSubjects.length > 0 ? existingSubjects : dummySubjects;
-
-  const getSubjectCode = (s: any) => s.code || s.subject_code || "—";
-  const getSubjectName = (s: any) => s.name || s.subject_name || "—";
-  const getSubjectCredits = (s: any) => s.credits ?? s.credit ?? 0;
-  const getCie = (s: any) => s.internal_marks ?? s.cie ?? "—";
-  const getSee = (s: any) => s.external_marks ?? s.see ?? "—";
-  const getTotal = (s: any) => s.total_marks ?? s.marks ?? "—";
-  const getGrade = (s: any) => s.grade || "—";
-  const getGradePoint = (s: any) => {
-    if (s.grade && s.grade in gradePoint) return gradePoint[s.grade as Grade];
-    if (s.grade_point != null) return s.grade_point;
-    return "—";
-  };
-  const getCreditsEarned = (s: any) => {
-    if (s.credits_earned != null) return s.credits_earned;
-    const creds = getSubjectCredits(s);
-    return s.grade !== "F" ? creds : 0;
-  };
-
-  const totalCreditsEar = row.credits_earned ?? displaySubjects.reduce((a: number, s: any) => a + getCreditsEarned(s), 0);
-
-  const totalPoints =
-    row.sgpa != null && row.credits_earned != null
-      ? (row.sgpa * row.credits_earned).toFixed(1)
-      : displaySubjects.reduce((a: number, s: any) => {
-          const gp = getGradePoint(s);
-          return a + (typeof gp === "number" ? gp * getSubjectCredits(s) : 0);
-        }, 0).toFixed(1);
+  const selectedDetail = detail?.semesters.find((item) => item.semester === selectedSemester) ?? null;
+  const displaySubjects: AdminResultSubject[] = selectedDetail?.subjects ?? [];
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -348,11 +243,21 @@ function ResultSheetModal({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground w-24">Semester</span>
-                  <span className="font-semibold text-foreground">: {row.semester}</span>
+                  <select
+                    aria-label="Select semester"
+                    className="rounded-md border bg-background px-2 py-1 font-semibold text-foreground"
+                    value={selectedSemester ?? ""}
+                    onChange={(event) => onSemesterChange(Number(event.target.value))}
+                    disabled={loading || !detail}
+                  >
+                    {detail?.semesters.map((item) => (
+                      <option key={item.semester} value={item.semester}>Semester {item.semester}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground w-24">CGPA</span>
-                  <span className="font-semibold text-foreground">: {row.cgpa != null ? Number(row.cgpa).toFixed(2) : "—"}</span>
+                  <span className="font-semibold text-foreground">: {selectedDetail?.cgpa != null ? Number(selectedDetail.cgpa).toFixed(2) : "—"}</span>
                 </div>
               </div>
             </div>
@@ -361,14 +266,14 @@ function ResultSheetModal({
             <section className="rounded-xl border bg-card shadow-sm overflow-hidden">
               <div className="bg-muted/30 px-5 py-4 border-b">
                 <h3 className="text-base font-bold text-foreground">
-                  Subject-wise Results (Semester {row.semester})
+                  Subject-wise Results (Semester {selectedDetail?.semester ?? row.semester})
                 </h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/10">
-                      {["#", "Subject Code", "Subject Name", "Credit", "Grade", "CIE Marks (50)", "SEE Marks (50)", "Total (100)", "Grade Point"].map((h) => (
+                        {["Subject Code", "Subject Name", "Credit", "Grade", "CIE Marks (50)", "SEE Marks (50)", "Total (100)", "Grade Point"].map((h) => (
                         <th
                           key={h}
                           className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
@@ -379,19 +284,23 @@ function ResultSheetModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {displaySubjects.map((s: any, idx: number) => {
-                      const gp = getGradePoint(s);
+                    {loading ? (
+                      <tr><td colSpan={8} className="px-5 py-8 text-center text-muted-foreground">Loading result details...</td></tr>
+                    ) : error ? (
+                      <tr><td colSpan={8} className="px-5 py-8 text-center text-destructive">{error}</td></tr>
+                    ) : displaySubjects.length === 0 ? (
+                      <tr><td colSpan={8} className="px-5 py-8 text-center text-muted-foreground">No subjects found for this semester.</td></tr>
+                    ) : displaySubjects.map((subject, idx) => {
                       return (
-                        <tr key={getSubjectCode(s) + idx} className="hover:bg-muted/5 transition-colors">
-                          <td className="px-5 py-3 font-medium text-muted-foreground">{idx + 1}</td>
-                          <td className="px-5 py-3 font-mono text-foreground">{getSubjectCode(s)}</td>
-                          <td className="px-5 py-3 text-foreground whitespace-normal min-w-[200px]">{getSubjectName(s)}</td>
-                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{getSubjectCredits(s)}</td>
-                          <td className="px-5 py-3 font-bold text-primary">{getGrade(s)}</td>
-                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{getCie(s)}</td>
-                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{getSee(s)}</td>
-                          <td className="px-5 py-3 tabular-nums font-semibold text-foreground">{getTotal(s)}</td>
-                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{gp}</td>
+                        <tr key={subject.subject_code + idx} className="hover:bg-muted/5 transition-colors">
+                          <td className="px-5 py-3 font-mono text-foreground">{subject.subject_code}</td>
+                          <td className="px-5 py-3 text-foreground whitespace-normal min-w-[200px]">{subject.subject_name}</td>
+                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{subject.credits ?? "—"}</td>
+                          <td className="px-5 py-3 font-bold text-primary">{subject.grade ?? "—"}</td>
+                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{subject.internal_marks ?? "—"}</td>
+                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{subject.external_marks ?? "—"}</td>
+                          <td className="px-5 py-3 tabular-nums font-semibold text-foreground">{subject.total_marks ?? "—"}</td>
+                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{subject.grade_point ?? "—"}</td>
                         </tr>
                       );
                     })}
@@ -404,10 +313,10 @@ function ResultSheetModal({
             <section>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: "Total Credits", value: totalCreditsEar },
-                  { label: "Total Points", value: totalPoints },
-                  { label: "SGPA", value: row.sgpa != null ? Number(row.sgpa).toFixed(2) : "—" },
-                  { label: "CGPA", value: row.cgpa != null ? Number(row.cgpa).toFixed(2) : "—" },
+                  { label: "Total Credits", value: selectedDetail?.total_credits ?? "—" },
+                  { label: "Total Points", value: selectedDetail?.total_points.toFixed(2) ?? "—" },
+                  { label: "SGPA", value: selectedDetail?.sgpa != null ? Number(selectedDetail.sgpa).toFixed(2) : "—" },
+                  { label: "CGPA", value: selectedDetail?.cgpa != null ? Number(selectedDetail.cgpa).toFixed(2) : "—" },
                 ].map(({ label, value }) => (
                   <div
                     key={label}
@@ -463,6 +372,44 @@ interface ViewResultsTableProps {
 
 export function ViewResultsTable({ results }: ViewResultsTableProps) {
   const [viewTarget, setViewTarget] = useState<AdminResultRow | null>(null);
+  const [detail, setDetail] = useState<AdminResultDetailResponse | null>(null);
+  const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!viewTarget) {
+      setDetail(null);
+      setSelectedSemester(null);
+      setDetailError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailError(null);
+    adminService.getResultDetails(viewTarget.usn)
+      .then((data) => {
+        if (cancelled) return;
+        setDetail(data);
+        setSelectedSemester(data.semesters.some((item) => item.semester === viewTarget.semester)
+          ? viewTarget.semester
+          : data.semesters[0]?.semester ?? null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        const message = getApiErrorMessage(error, "Could not load this student's result.");
+        setDetailError(message);
+        toast.error(message);
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewTarget]);
 
   if (results.length === 0) {
     return (
@@ -643,7 +590,11 @@ export function ViewResultsTable({ results }: ViewResultsTableProps) {
                       variant="outline"
                       size="sm"
                       className="gap-1.5 text-xs h-8 border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
-                      onClick={() => setViewTarget(row)}
+                      onClick={() => {
+                        setDetail(null);
+                        setSelectedSemester(row.semester);
+                        setViewTarget(row);
+                      }}
                     >
                       <FileText className="h-3.5 w-3.5" />
                       View More
@@ -659,12 +610,22 @@ export function ViewResultsTable({ results }: ViewResultsTableProps) {
       {/* Result Sheet Modal */}
       <ResultSheetModal
         row={viewTarget}
+        detail={detail}
+        selectedSemester={selectedSemester}
+        onSemesterChange={setSelectedSemester}
+        loading={detailLoading}
+        error={detailError}
         open={!!viewTarget}
         onClose={() => setViewTarget(null)}
       />
 
       {/* Standalone Print Component (Rendered directly in page DOM tree, outside Radix Portal) */}
-      {viewTarget && <AdminPrintCard row={viewTarget} />}
+      {viewTarget && detail && selectedSemester !== null && (
+        <AdminPrintCard
+          row={viewTarget}
+          detail={detail.semesters.find((item) => item.semester === selectedSemester) ?? detail.semesters[0]}
+        />
+      )}
     </>
   );
 }

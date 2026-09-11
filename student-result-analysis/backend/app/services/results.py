@@ -5,7 +5,10 @@ from collections import defaultdict
 
 from app.models import Student, StudentMark, StudentResult, Subject
 from app.schemas import (
+    AdminResultDetailResponse,
     AdminResultRow,
+    AdminResultSemester,
+    AdminResultSubject,
     AdminResultsResponse,
     AdminTopperRow,
     AdminToppersResponse,
@@ -89,6 +92,84 @@ def list_admin_results(
         total=len(results),
         departments=departments,
         results=results,
+    )
+
+
+def get_admin_result_details(
+    db: Session,
+    *,
+    usn: str,
+    semester: int | None = None,
+) -> AdminResultDetailResponse:
+    student = db.query(Student).filter(Student.usn == usn).first()
+    if student is None:
+        raise ValueError("Student not found")
+
+    results_query = db.query(StudentResult).filter(StudentResult.usn == usn)
+    if semester is not None:
+        results_query = results_query.filter(StudentResult.semester == semester)
+    result_rows = results_query.order_by(StudentResult.semester.asc()).all()
+
+    marks_query = (
+        db.query(StudentMark, Subject)
+        .join(Subject, Subject.subject_code == StudentMark.subject_code)
+        .filter(StudentMark.usn == usn)
+    )
+    if semester is not None:
+        marks_query = marks_query.filter(StudentMark.semester == semester)
+    marks = marks_query.order_by(StudentMark.semester.asc(), StudentMark.subject_code.asc()).all()
+
+    marks_by_semester: dict[int, list[AdminResultSubject]] = defaultdict(list)
+    for mark, subject in marks:
+        grade = _resolved_grade(mark)
+        marks_by_semester[mark.semester].append(
+            AdminResultSubject(
+                subject_code=subject.subject_code,
+                subject_name=subject.subject_name or subject.subject_code,
+                credits=subject.credits,
+                grade=grade,
+                internal_marks=_as_float(mark.internal_marks),
+                external_marks=_as_float(mark.external_marks),
+                total_marks=_as_float(mark.total_marks),
+                grade_point=GRADE_POINTS.get(grade) if grade else None,
+            )
+        )
+
+    result_by_semester = {row.semester: row for row in result_rows}
+    semesters = sorted(set(result_by_semester) | set(marks_by_semester))
+    detail_semesters: list[AdminResultSemester] = []
+    for current_semester in semesters:
+        result = result_by_semester.get(current_semester)
+        subjects = marks_by_semester.get(current_semester, [])
+        total_points = round(
+            sum(
+                (subject.credits or 0) * (subject.grade_point or 0)
+                for subject in subjects
+            ),
+            2,
+        )
+        total_credits = result.credits_earned if result else sum(
+            subject.credits or 0
+            for subject in subjects
+            if subject.grade != "F"
+        )
+        detail_semesters.append(
+            AdminResultSemester(
+                semester=current_semester,
+                academic_year=result.academic_year if result else None,
+                total_credits=total_credits,
+                total_points=total_points,
+                sgpa=_as_float(result.sgpa) if result else None,
+                cgpa=_as_float(result.cgpa) if result else None,
+                subjects=subjects,
+            )
+        )
+
+    return AdminResultDetailResponse(
+        usn=student.usn,
+        student_name=student.student_name,
+        department=student.department,
+        semesters=detail_semesters,
     )
 
 

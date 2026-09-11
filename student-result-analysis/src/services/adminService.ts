@@ -129,6 +129,34 @@ export interface AdminResultsResponse {
   results: AdminResultRow[];
 }
 
+export interface AdminResultSubject {
+  subject_code: string;
+  subject_name: string;
+  credits: number | null;
+  grade: string | null;
+  internal_marks: number | null;
+  external_marks: number | null;
+  total_marks: number | null;
+  grade_point: number | null;
+}
+
+export interface AdminResultSemester {
+  semester: number;
+  academic_year: string | null;
+  total_credits: number | null;
+  total_points: number;
+  sgpa: number | null;
+  cgpa: number | null;
+  subjects: AdminResultSubject[];
+}
+
+export interface AdminResultDetailResponse {
+  usn: string;
+  student_name: string;
+  department: string;
+  semesters: AdminResultSemester[];
+}
+
 export interface AdminTopperRow {
   usn: string;
   name: string;
@@ -179,6 +207,8 @@ export const adminService = {
   },
   getResults: (params?: { department?: string; semester?: number; search?: string }) =>
     api.get<AdminResultsResponse>("/admin/results", { params }).then((r) => r.data),
+  getResultDetails: (usn: string) =>
+    api.get<AdminResultDetailResponse>(`/admin/results/${encodeURIComponent(usn)}`).then((r) => r.data),
   deleteResult: (id: string) => api.delete(`/admin/results/${id}`).then((r) => r.data),
   getToppers: () => api.get<AdminToppersResponse>("/admin/toppers").then((r) => r.data),
 };

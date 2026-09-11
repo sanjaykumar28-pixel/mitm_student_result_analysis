@@ -204,6 +204,34 @@ class AdminResultsResponse(BaseModel):
     results: list[AdminResultRow]
 
 
+class AdminResultSubject(BaseModel):
+    subject_code: str
+    subject_name: str
+    credits: int | None = None
+    grade: str | None = None
+    internal_marks: float | None = None
+    external_marks: float | None = None
+    total_marks: float | None = None
+    grade_point: int | None = None
+
+
+class AdminResultSemester(BaseModel):
+    semester: int
+    academic_year: str | None = None
+    total_credits: int | None = None
+    total_points: float
+    sgpa: float | None = None
+    cgpa: float | None = None
+    subjects: list[AdminResultSubject]
+
+
+class AdminResultDetailResponse(BaseModel):
+    usn: str
+    student_name: str
+    department: str
+    semesters: list[AdminResultSemester]
+
+
 class AdminTopperRow(BaseModel):
     usn: str
     name: str
