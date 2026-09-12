@@ -38,7 +38,7 @@ export const Route = createFileRoute("/admin/add-subject")({
 const schema = z.object({
   subjectName: z.string().trim().min(2, "Subject Name is required").max(100),
   subjectCode: z.string().trim().min(2, "Subject Code is required").max(20),
-  credit: z.coerce.number().min(1, "Credit is required").max(10),
+  credit: z.coerce.number().min(1, "Credit is required").max(20),
   department: z.string().min(1, "Department is required"),
   semester: z.string().min(1, "Semester is required"),
 });

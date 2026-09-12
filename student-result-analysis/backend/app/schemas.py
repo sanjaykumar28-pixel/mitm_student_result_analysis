@@ -117,7 +117,7 @@ class BulkStudentImportResponse(BaseModel):
 class AddSubjectRequest(BaseModel):
     subject_name: str = Field(min_length=2, max_length=100)
     subject_code: str = Field(min_length=2, max_length=20)
-    credit: int = Field(ge=1, le=10)
+    credit: int = Field(ge=1, le=20)
     semester: int = Field(ge=1, le=8)
     department: str = Field(min_length=1, max_length=80)
 
