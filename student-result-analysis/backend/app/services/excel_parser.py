@@ -153,8 +153,8 @@ def _to_mark(value: Any, *, row: int, usn: str, subject: str, field: str, errors
     except (TypeError, ValueError):
         errors.append(ImportErrorItem(row, usn, subject, f"Invalid {field} marks: {raw}"))
         return None
-    if number < 0 or number > 100:
-        errors.append(ImportErrorItem(row, usn, subject, f"{field} marks must be between 0 and 100"))
+    if number < 0 or number > 500:
+        errors.append(ImportErrorItem(row, usn, subject, f"{field} marks must be between 0 and 500"))
         return None
     return number
 
@@ -391,8 +391,8 @@ def parse_result_workbook(content: bytes, filename: str) -> ParsedWorkbook:
             if ia is None or ext is None:
                 continue
             computed = round(ia + ext, 2)
-            if computed > 100:
-                errors.append(ImportErrorItem(excel_row, usn, subject.code, "IA+Ext exceeds 100"))
+            if computed > 500:
+                errors.append(ImportErrorItem(excel_row, usn, subject.code, "IA+Ext exceeds 500"))
                 continue
             marks.append(
                 ParsedMark(

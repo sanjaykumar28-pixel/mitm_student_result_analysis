@@ -45,7 +45,7 @@ export function Sidebar({ items, collapsed, open, onClose }: Props) {
              </div>
             {!collapsed && (
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">MITMYSORE</p>
+                <p className="truncate text-sm font-semibold">MIT MYSORE</p>
                 <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
                   Result Analytics
                 </p>

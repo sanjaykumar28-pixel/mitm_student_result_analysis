@@ -35,6 +35,15 @@ export function PieChartComponent({ data, height = 280, donut = true }: Props) {
           ))}
         </Pie>
         <Tooltip
+          formatter={(value: any, name: any) => {
+            if (typeof value === "number") {
+              const lowerName = String(name).toLowerCase();
+              if (lowerName.includes("cgpa") || lowerName.includes("sgpa")) {
+                return [value.toFixed(2), name];
+              }
+            }
+            return [value, name];
+          }}
           contentStyle={{
             backgroundColor: "var(--color-popover)",
             border: "1px solid var(--color-border)",

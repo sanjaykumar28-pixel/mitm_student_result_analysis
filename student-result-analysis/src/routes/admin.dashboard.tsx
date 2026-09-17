@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Users, BookOpen, TrendingUp, Award, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatsCard } from "@/components/cards/StatsCard";
@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { BarChartComponent } from "@/components/charts/BarChartComponent";
 import { LineChartComponent } from "@/components/charts/LineChartComponent";
 import { PieChartComponent } from "@/components/charts/PieChartComponent";
-import { TopperTable } from "@/components/tables/TopperTable";
+import { TopperTable, type TopperEntry } from "@/components/tables/TopperTable";
 import { adminService, type AdminResultRow } from "@/services/adminService";
 
 export const Route = createFileRoute("/admin/dashboard")({
@@ -29,8 +29,10 @@ function AdminDashboard() {
     semesterPass: [] as Array<{ semester: string; pass: number }>,
     gradeDistribution: [] as Array<{ name: string; value: number }>,
     performanceTrend: [] as Array<{ semester: string; cgpa: number }>,
-    toppers: [] as Array<any>,
+    toppers: [] as TopperEntry[],
   });
+
+  const [selectedYear, setSelectedYear] = useState<string>("all");
 
   const [loading, setLoading] = useState(true);
 
@@ -178,18 +180,17 @@ function AdminDashboard() {
             cgpa: stat.count > 0 ? stat.sum / stat.count : 0
           }));
 
-        // 5. Toppers
-        const top5 = evaluatedStudents
+        // 5. Toppers — include all candidates (not just top 5) so year filter can work later
+        const allTopperCandidates: TopperEntry[] = evaluatedStudents
           .filter(res => res.cgpa && res.cgpa > 0)
           .sort((a, b) => (b.cgpa || 0) - (a.cgpa || 0))
-          .slice(0, 5)
           .map(res => ({
               id: res.usn,
               name: res.student_name,
-              email: "",
               department: res.department,
               semester: res.semester,
-              cgpa: res.cgpa
+              cgpa: res.cgpa as number,
+              academic_year: res.academic_year ?? null,
           }));
 
         setCharts({
@@ -197,7 +198,7 @@ function AdminDashboard() {
           semesterPass,
           gradeDistribution,
           performanceTrend,
-          toppers: top5
+          toppers: allTopperCandidates,
         });
 
       } catch (err) {
@@ -325,18 +326,11 @@ function AdminDashboard() {
             </Card>
           </div>
 
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="text-base">Top Performers</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {charts.toppers.length > 0 ? (
-                <TopperTable toppers={charts.toppers} />
-              ) : (
-                <p className="text-sm text-muted-foreground text-center p-4">No results available</p>
-              )}
-            </CardContent>
-          </Card>
+          <TopPerformersCard
+            allToppers={charts.toppers}
+            selectedYear={selectedYear}
+            onYearChange={setSelectedYear}
+          />
         </>
       )}
       
@@ -352,5 +346,69 @@ function AdminDashboard() {
         </div>
       )}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TopPerformersCard — academic-year filter + ranked table (no semester col)
+// ---------------------------------------------------------------------------
+interface TopPerformersCardProps {
+  allToppers: TopperEntry[];
+  selectedYear: string;
+  onYearChange: (year: string) => void;
+}
+
+function TopPerformersCard({ allToppers, selectedYear, onYearChange }: TopPerformersCardProps) {
+  // Derive unique, sorted academic years from the data (frontend only)
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    allToppers.forEach((t) => {
+      if (t.academic_year) years.add(t.academic_year);
+    });
+    // Sort descending (most recent first)
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [allToppers]);
+
+  // Filter and take top 5 for the selected year
+  const filteredToppers = useMemo(() => {
+    const pool =
+      selectedYear === "all"
+        ? allToppers
+        : allToppers.filter((t) => t.academic_year === selectedYear);
+    return pool.slice(0, 10);
+  }, [allToppers, selectedYear]);
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-base">Top Performers</CardTitle>
+          {availableYears.length > 0 && (
+            <div className="flex items-center gap-2">
+              <select
+                id="top-performers-year-filter"
+                value={selectedYear}
+                onChange={(e) => onYearChange(e.target.value)}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="all">All Years</option>
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {allToppers.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center p-4">No results available</p>
+        ) : (
+          <TopperTable toppers={filteredToppers} />
+        )}
+      </CardContent>
+    </Card>
   );
 }

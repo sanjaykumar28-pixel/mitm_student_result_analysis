@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { RankCard } from "@/components/cards/RankCard";
-import { TopperTable } from "@/components/tables/TopperTable";
+import { TopperTable, type TopperEntry } from "@/components/tables/TopperTable";
 import { BarChartComponent } from "@/components/charts/BarChartComponent";
 import {
   Table,
@@ -14,7 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Info } from "lucide-react";
-import type { Student } from "@/data/mockData";
 import { adminService, type AdminTopperRow } from "@/services/adminService";
 import { getApiErrorMessage } from "@/services/api";
 
@@ -22,19 +21,19 @@ export const Route = createFileRoute("/admin/toppers")({
   component: Toppers,
 });
 
-function toStudent(row: AdminTopperRow): Student {
+function toTopperEntry(row: AdminTopperRow): TopperEntry {
   return {
     id: row.usn,
     name: row.name,
-    email: "",
     department: row.department,
     semester: row.semester,
     cgpa: row.cgpa,
+    academic_year: null,
   };
 }
 
 function Toppers() {
-  const [top10, setTop10] = useState<Student[]>([]);
+  const [top10, setTop10] = useState<TopperEntry[]>([]);
   const [semesterToppers, setSemesterToppers] = useState<Array<{ semester: number; studentName: string; cgpa: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,28 +42,39 @@ function Toppers() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    adminService
-      .getToppers()
-      .then((data) => {
+
+    Promise.all([
+      adminService.getToppers(),
+      adminService.getResults(),
+    ])
+      .then(([toppersData, resultsData]) => {
         if (cancelled) return;
-        
-        const toppers = data.toppers ?? [];
-        setTop10(toppers.map(toStudent));
-        
-        const semMap = toppers
-          .filter((t) => t.semester != null && t.cgpa != null)
-          .reduce((acc: Record<number, { semester: number; studentName: string; cgpa: number }>, t) => {
-            if (!acc[t.semester] || t.cgpa > acc[t.semester].cgpa) {
-              acc[t.semester] = {
-                semester: t.semester,
-                studentName: t.name,
-                cgpa: t.cgpa,
-              };
-            }
-            return acc;
-          }, {});
-          
-        setSemesterToppers(Object.values(semMap).sort((a, b) => a.semester - b.semester));
+
+        // Top-10 overall list (unchanged)
+        const toppers = toppersData.toppers ?? [];
+        setTop10(toppers.map(toTopperEntry));
+
+        // Semester Topper List — derived from the FULL results dataset so
+        // every semester with valid data appears, not just semesters that
+        // happen to be represented in the top-10 overall list.
+        const allResults = resultsData.results ?? [];
+        const semMap: Record<number, { semester: number; studentName: string; cgpa: number }> = {};
+
+        for (const res of allResults) {
+          if (res.semester == null || res.cgpa == null || res.cgpa <= 0) continue;
+          const existing = semMap[res.semester];
+          if (!existing || res.cgpa > existing.cgpa) {
+            semMap[res.semester] = {
+              semester: res.semester,
+              studentName: res.student_name,
+              cgpa: res.cgpa,
+            };
+          }
+        }
+
+        setSemesterToppers(
+          Object.values(semMap).sort((a, b) => a.semester - b.semester)
+        );
       })
       .catch((err) => {
         if (cancelled) return;
@@ -75,10 +85,12 @@ function Toppers() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
   }, []);
+
 
   const top3 = top10.slice(0, 3);
 

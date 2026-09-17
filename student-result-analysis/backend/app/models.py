@@ -67,7 +67,7 @@ class StudentMark(Base):
     __table_args__ = (
         UniqueConstraint("usn", "subject_code", "semester", name="uq_marks_student_subject_sem"),
         CheckConstraint("internal_marks >= 0 AND internal_marks <= 100", name="chk_marks_ia"),
-        CheckConstraint("external_marks >= 0 AND external_marks <= 100", name="chk_marks_ext"),
+        # CheckConstraint("external_marks >= 0 AND external_marks <= 100", name="chk_marks_ext"),
     )
 
     marks_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

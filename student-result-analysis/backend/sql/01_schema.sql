@@ -98,7 +98,7 @@ CREATE TABLE Student_Marks (
     CONSTRAINT uq_marks_student_subject_sem
         UNIQUE (usn, subject_code, semester),
     CONSTRAINT chk_marks_ia CHECK (internal_marks >= 0 AND internal_marks <= 100),
-    CONSTRAINT chk_marks_ext CHECK (external_marks >= 0 AND external_marks <= 100)
+    -- CONSTRAINT chk_marks_ext CHECK (external_marks >= 0 AND external_marks <= 100)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- One summary row per student per semester (Excel Total + AVG).

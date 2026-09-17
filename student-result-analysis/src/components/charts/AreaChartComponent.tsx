@@ -26,6 +26,15 @@ export function AreaChartComponent({ data, xKey, areas, height = 280 }: Props) {
         <XAxis dataKey={xKey} stroke="var(--color-muted-foreground)" fontSize={12} />
         <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
         <Tooltip
+          formatter={(value: any, name: any) => {
+            if (typeof value === "number") {
+              const lowerName = String(name).toLowerCase();
+              if (lowerName.includes("cgpa") || lowerName.includes("sgpa")) {
+                return [value.toFixed(2), name];
+              }
+            }
+            return [value, name];
+          }}
           contentStyle={{
             backgroundColor: "var(--color-popover)",
             border: "1px solid var(--color-border)",
