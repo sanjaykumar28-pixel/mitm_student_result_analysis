@@ -1,4 +1,11 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2 } from "lucide-react";
@@ -15,7 +22,9 @@ export function StudentTable({ students, onEdit, onDelete }: Props) {
     return (
       <div className="rounded-xl border bg-card p-12 text-center">
         <p className="text-sm font-medium">No students found</p>
-        <p className="mt-1 text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Try adjusting your filters or search query.
+        </p>
       </div>
     );
   }
@@ -38,7 +47,9 @@ export function StudentTable({ students, onEdit, onDelete }: Props) {
             <TableRow key={s.id}>
               <TableCell className="font-mono text-xs">{s.id}</TableCell>
               <TableCell className="font-medium">{s.name}</TableCell>
-              <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{s.email}</TableCell>
+              <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
+                {s.email}
+              </TableCell>
               <TableCell>{s.department}</TableCell>
               <TableCell className="text-center">{s.semester}</TableCell>
               <TableCell className="text-center">

@@ -93,7 +93,16 @@ function ViewResults() {
       toast.warning("No data to export.");
       return;
     }
-    const headers = ["USN", "Student Name", "Department", "Semester", "SGPA", "CGPA", "Grand Total", "Average"];
+    const headers = [
+      "USN",
+      "Student Name",
+      "Department",
+      "Semester",
+      "SGPA",
+      "CGPA",
+      "Grand Total",
+      "Average",
+    ];
     const rows = results.map((r) => [
       r.usn,
       r.student_name,
@@ -116,7 +125,7 @@ function ViewResults() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-8">
       {/* ── Page Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -165,7 +174,12 @@ function ViewResults() {
             </div>
 
             {/* Department filter */}
-            <Select value={dept} onValueChange={(v) => { setDept(v); }}>
+            <Select
+              value={dept}
+              onValueChange={(v) => {
+                setDept(v);
+              }}
+            >
               <SelectTrigger id="vr-dept" className="lg:w-52 bg-background">
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
@@ -180,7 +194,12 @@ function ViewResults() {
             </Select>
 
             {/* Semester filter */}
-            <Select value={sem} onValueChange={(v) => { setSem(v); }}>
+            <Select
+              value={sem}
+              onValueChange={(v) => {
+                setSem(v);
+              }}
+            >
               <SelectTrigger id="vr-sem" className="lg:w-44 bg-background">
                 <SelectValue placeholder="All Semesters" />
               </SelectTrigger>
@@ -201,8 +220,18 @@ function ViewResults() {
       {error ? (
         <div className="rounded-2xl border border-destructive/30 bg-card p-12 text-center shadow-sm">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-            <svg className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              className="h-6 w-6 text-destructive"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
           </div>
           <p className="text-sm font-semibold text-destructive">Could not load results</p>
@@ -242,12 +271,9 @@ function ViewResults() {
           <p className="text-muted-foreground">
             Showing{" "}
             <span className="font-medium text-foreground">
-              {(safePage - 1) * PAGE_SIZE + 1}–
-              {Math.min(safePage * PAGE_SIZE, results.length)}
+              {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, results.length)}
             </span>{" "}
-            of{" "}
-            <span className="font-medium text-foreground">{results.length}</span>{" "}
-            results
+            of <span className="font-medium text-foreground">{results.length}</span> results
           </p>
           <div className="flex items-center gap-2">
             <Button

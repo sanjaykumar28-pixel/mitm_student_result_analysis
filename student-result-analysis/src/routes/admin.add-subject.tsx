@@ -17,6 +17,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -27,7 +35,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { departments } from "@/data/mockData";
-import { adminService, type AddSubjectPayload, type AdminSubjectRow } from "@/services/adminService";
+import {
+  adminService,
+  type AddSubjectPayload,
+  type AdminSubjectRow,
+} from "@/services/adminService";
 import { getApiErrorMessage } from "@/services/api";
 
 export const Route = createFileRoute("/admin/add-subject")({
@@ -146,12 +158,8 @@ function AddSubject() {
 
   const handleDeleteConfirm = useCallback(() => {
     if (!deleteTarget) return;
-    setSubjects((prev) =>
-      prev.filter((s) => s.subject_id !== deleteTarget.subject_id),
-    );
-    toast.success(
-      `Subject "${deleteTarget.subject_name ?? "subject"}" removed from the list.`,
-    );
+    setSubjects((prev) => prev.filter((s) => s.subject_id !== deleteTarget.subject_id));
+    toast.success(`Subject "${deleteTarget.subject_name ?? "subject"}" removed from the list.`);
     setDeleteTarget(null);
   }, [deleteTarget]);
 
@@ -163,10 +171,7 @@ function AddSubject() {
       const subjectCode = (s.subject_code ?? "").toLowerCase();
       const departmentName = (s.department ?? "").toLowerCase();
       const matchesSearch =
-        !q ||
-        subjectName.includes(q) ||
-        subjectCode.includes(q) ||
-        departmentName.includes(q);
+        !q || subjectName.includes(q) || subjectCode.includes(q) || departmentName.includes(q);
       return matchesSem && matchesSearch;
     });
   }, [subjects, filterSem, searchQuery]);
@@ -174,7 +179,7 @@ function AddSubject() {
   const isEditing = editingId !== null;
 
   return (
-    <>
+    <div className="flex flex-col gap-6 pb-8 animate-in fade-in duration-500">
       <PageHeader
         title={isEditing ? "Edit Subject" : "Add Subject"}
         subtitle={
@@ -191,10 +196,7 @@ function AddSubject() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="grid grid-cols-1 gap-4 sm:grid-cols-2"
-          >
+          <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="subjectName">Subject Name</Label>
               <Input
@@ -203,48 +205,29 @@ function AddSubject() {
                 {...register("subjectName")}
               />
               {errors.subjectName && (
-                <p className="text-xs text-destructive">
-                  {errors.subjectName.message}
-                </p>
+                <p className="text-xs text-destructive">{errors.subjectName.message}</p>
               )}
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="subjectCode">Subject Code</Label>
-              <Input
-                id="subjectCode"
-                placeholder="e.g. MCA101"
-                {...register("subjectCode")}
-              />
+              <Input id="subjectCode" placeholder="e.g. MCA101" {...register("subjectCode")} />
               {errors.subjectCode && (
-                <p className="text-xs text-destructive">
-                  {errors.subjectCode.message}
-                </p>
+                <p className="text-xs text-destructive">{errors.subjectCode.message}</p>
               )}
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="credit">Credit</Label>
-              <Input
-                id="credit"
-                type="number"
-                placeholder="e.g. 4"
-                {...register("credit")}
-              />
-              {errors.credit && (
-                <p className="text-xs text-destructive">
-                  {errors.credit.message}
-                </p>
-              )}
+              <Input id="credit" type="number" placeholder="e.g. 4" {...register("credit")} />
+              {errors.credit && <p className="text-xs text-destructive">{errors.credit.message}</p>}
             </div>
 
             <div className="space-y-1.5">
               <Label>Department</Label>
               <Select
                 value={watch("department")}
-                onValueChange={(v) =>
-                  setValue("department", v, { shouldValidate: true })
-                }
+                onValueChange={(v) => setValue("department", v, { shouldValidate: true })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select department" />
@@ -258,9 +241,7 @@ function AddSubject() {
                 </SelectContent>
               </Select>
               {errors.department && (
-                <p className="text-xs text-destructive">
-                  {errors.department.message}
-                </p>
+                <p className="text-xs text-destructive">{errors.department.message}</p>
               )}
             </div>
 
@@ -268,9 +249,7 @@ function AddSubject() {
               <Label>Semester</Label>
               <Select
                 value={watch("semester")}
-                onValueChange={(v) =>
-                  setValue("semester", v, { shouldValidate: true })
-                }
+                onValueChange={(v) => setValue("semester", v, { shouldValidate: true })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select semester" />
@@ -284,25 +263,15 @@ function AddSubject() {
                 </SelectContent>
               </Select>
               {errors.semester && (
-                <p className="text-xs text-destructive">
-                  {errors.semester.message}
-                </p>
+                <p className="text-xs text-destructive">{errors.semester.message}</p>
               )}
             </div>
 
             <div className="flex gap-2 sm:col-span-2 mt-2">
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting
-                  ? "Saving…"
-                  : isEditing
-                    ? "Save Changes"
-                    : "Add Subject"}
+                {isSubmitting ? "Saving…" : isEditing ? "Save Changes" : "Add Subject"}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancelEdit}
-              >
+              <Button type="button" variant="outline" onClick={handleCancelEdit}>
                 {isEditing ? "Cancel Edit" : "Reset"}
               </Button>
             </div>
@@ -312,9 +281,7 @@ function AddSubject() {
 
       <div className="mt-8 space-y-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold tracking-tight">
-            All Subjects
-          </h2>
+          <h2 className="text-xl font-semibold tracking-tight">All Subjects</h2>
           <p className="text-sm text-muted-foreground">
             {isLoadingSubjects
               ? "Loading subjects…"
@@ -343,14 +310,8 @@ function AddSubject() {
                 />
               </div>
 
-              <Select
-                value={filterSem}
-                onValueChange={(v) => setFilterSem(v)}
-              >
-                <SelectTrigger
-                  id="subject-filter-sem"
-                  className="sm:w-44 bg-background"
-                >
+              <Select value={filterSem} onValueChange={(v) => setFilterSem(v)}>
+                <SelectTrigger id="subject-filter-sem" className="sm:w-44 bg-background">
                   <SelectValue placeholder="All Semesters" />
                 </SelectTrigger>
                 <SelectContent>
@@ -377,7 +338,12 @@ function AddSubject() {
           <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-12 text-center shadow-sm">
             <p className="text-sm font-semibold text-destructive">Unable to load subjects</p>
             <p className="mt-1 text-xs text-muted-foreground">{subjectsError}</p>
-            <Button type="button" variant="outline" className="mt-4" onClick={() => void loadSubjects()}>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4"
+              onClick={() => void loadSubjects()}
+            >
               Retry
             </Button>
           </div>
@@ -386,20 +352,15 @@ function AddSubject() {
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
               <BookOpen className="h-6 w-6 text-muted-foreground" />
             </div>
-            <p className="text-sm font-semibold text-foreground">
-              No subjects yet
-            </p>
+            <p className="text-sm font-semibold text-foreground">No subjects yet</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Fill in the form above and click{" "}
-              <span className="font-medium">Add Subject</span> to see subjects
-              here.
+              Fill in the form above and click <span className="font-medium">Add Subject</span> to
+              see subjects here.
             </p>
           </div>
         ) : filteredSubjects.length === 0 ? (
           <div className="rounded-2xl border bg-card p-12 text-center shadow-sm">
-            <p className="text-sm font-semibold text-foreground">
-              No subjects match your filters
-            </p>
+            <p className="text-sm font-semibold text-foreground">No subjects match your filters</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Try adjusting the semester or search query.
             </p>
@@ -407,76 +368,43 @@ function AddSubject() {
         ) : (
           <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/40">
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-12">
-                      #
-                    </th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Subject Name
-                    </th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Subject Code
-                    </th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:table-cell">
-                      Department
-                    </th>
-                    <th className="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Semester
-                    </th>
-                    <th className="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Credit
-                    </th>
-                    <th className="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12 text-center">#</TableHead>
+                    <TableHead>Subject Name</TableHead>
+                    <TableHead>Subject Code</TableHead>
+                    <TableHead className="hidden md:table-cell">Department</TableHead>
+                    <TableHead className="text-center">Semester</TableHead>
+                    <TableHead className="text-center">Credit</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredSubjects.map((row, idx) => (
-                    <tr
-                      key={row.subject_id}
-                      className="group transition-colors hover:bg-muted/30"
-                    >
-                      <td className="px-4 py-3.5 text-muted-foreground tabular-nums text-xs">
-                        {idx + 1}
-                      </td>
-
-                      <td className="px-4 py-3.5">
-                        <p className="font-medium text-foreground">
+                    <TableRow key={row.subject_id}>
+                      <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
+                      <TableCell>
+                        <p className="font-semibold text-foreground">
                           {row.subject_name ?? "Unnamed subject"}
                         </p>
                         <p className="text-xs text-muted-foreground md:hidden">
                           {row.department ?? "Unassigned"}
                         </p>
-                      </td>
-
-                      <td className="px-4 py-3.5">
-                        <span className="font-mono text-xs font-medium text-primary bg-primary/8 rounded-md px-1.5 py-0.5 border border-primary/15">
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-[11px] font-bold text-primary bg-primary/10 rounded-md px-2 py-1 uppercase tracking-wider">
                           {row.subject_code}
                         </span>
-                      </td>
-
-                      <td className="px-4 py-3.5 hidden md:table-cell">
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge variant="secondary" className="font-normal whitespace-nowrap">
                           {row.department ?? "Unassigned"}
                         </Badge>
-                      </td>
-
-                      <td className="px-4 py-3.5 text-center">
-                        <span className="tabular-nums text-foreground font-medium">
-                          {row.semester}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3.5 text-center">
-                        <span className="tabular-nums text-foreground">
-                          {row.credit ?? 0}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3.5">
+                      </TableCell>
+                      <TableCell className="text-center font-medium">{row.semester}</TableCell>
+                      <TableCell className="text-center">{row.credit ?? 0}</TableCell>
+                      <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="ghost"
@@ -486,7 +414,6 @@ function AddSubject() {
                             title="Edit subject"
                           >
                             <Pencil className="h-3.5 w-3.5" />
-                            <span className="sr-only">Edit</span>
                           </Button>
                           <Button
                             variant="ghost"
@@ -496,14 +423,13 @@ function AddSubject() {
                             title="Delete subject"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                            <span className="sr-only">Delete</span>
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}
@@ -526,16 +452,12 @@ function AddSubject() {
             <DialogDescription>
               Are you sure you want to remove{" "}
               <strong>{deleteTarget?.subject_name ?? "this subject"}</strong> (
-              {deleteTarget?.subject_code}) — Semester{" "}
-              {deleteTarget?.semester}? This will remove it from the current
-              list.
+              {deleteTarget?.subject_code}) — Semester {deleteTarget?.semester}? This will remove it
+              from the current list.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteTarget(null)}
-            >
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDeleteConfirm}>
@@ -544,6 +466,6 @@ function AddSubject() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

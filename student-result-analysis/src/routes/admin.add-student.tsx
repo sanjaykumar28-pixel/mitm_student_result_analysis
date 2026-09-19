@@ -11,9 +11,20 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -29,7 +40,11 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader";
 import { cn } from "@/lib/utils";
 import { departments } from "@/data/mockData";
-import { adminService, type AdminStudentRow, type BulkStudentImportResponse } from "@/services/adminService";
+import {
+  adminService,
+  type AdminStudentRow,
+  type BulkStudentImportResponse,
+} from "@/services/adminService";
 import { getApiErrorItems, getApiErrorMessage } from "@/services/api";
 
 export const Route = createFileRoute("/admin/add-student")({
@@ -61,7 +76,7 @@ function AddStudent() {
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [studentsError, setStudentsError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   const {
     register,
     handleSubmit,
@@ -97,7 +112,9 @@ function AddStudent() {
         s.usn?.toLowerCase().includes(q) ||
         s.email?.toLowerCase().includes(q) ||
         s.department?.toLowerCase().includes(q) ||
-        String(s.semester ?? "").toLowerCase().includes(q) ||
+        String(s.semester ?? "")
+          .toLowerCase()
+          .includes(q) ||
         s.gender?.toLowerCase().includes(q)
       );
     });
@@ -146,11 +163,7 @@ function AddStudent() {
 
   const selectExcelFile = (f: File) => {
     const name = f.name.toLowerCase();
-    if (
-      !name.endsWith(".xlsx") &&
-      !name.endsWith(".xlsm") &&
-      !name.endsWith(".xlsm")
-    ) {
+    if (!name.endsWith(".xlsx") && !name.endsWith(".xlsm") && !name.endsWith(".xlsm")) {
       toast.error("Choose an Excel workbook (.xlsx or .xlsm).");
       return;
     }
@@ -204,8 +217,11 @@ function AddStudent() {
   };
 
   return (
-    <>
-      <PageHeader title="Add Student" subtitle="Create a new student account or bulk-import via Excel." />
+    <div className="flex flex-col gap-6 pb-8 animate-in fade-in duration-500">
+      <PageHeader
+        title="Add Student"
+        subtitle="Create a new student account or bulk-import via Excel."
+      />
 
       {/* ── 1. Manual Add Student ─────────────────────────────────────────── */}
       <Card className="w-full">
@@ -214,12 +230,13 @@ function AddStudent() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-
             {/* Student ID / USN */}
             <div className="space-y-1.5">
               <Label htmlFor="studentId">Student ID / USN</Label>
               <Input id="studentId" placeholder="4MH24MC001" {...register("studentId")} />
-              {errors.studentId && <p className="text-xs text-destructive">{errors.studentId.message}</p>}
+              {errors.studentId && (
+                <p className="text-xs text-destructive">{errors.studentId.message}</p>
+              )}
             </div>
 
             {/* Full Name */}
@@ -243,12 +260,20 @@ function AddStudent() {
                 value={watch("department")}
                 onValueChange={(v) => setValue("department", v, { shouldValidate: true })}
               >
-                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
                 <SelectContent>
-                  {departments.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  {departments.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {errors.department && <p className="text-xs text-destructive">{errors.department.message}</p>}
+              {errors.department && (
+                <p className="text-xs text-destructive">{errors.department.message}</p>
+              )}
             </div>
 
             {/* Semester */}
@@ -258,14 +283,20 @@ function AddStudent() {
                 value={watch("semester")}
                 onValueChange={(v) => setValue("semester", v, { shouldValidate: true })}
               >
-                <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select semester" />
+                </SelectTrigger>
                 <SelectContent>
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                    <SelectItem key={s} value={String(s)}>Semester {s}</SelectItem>
+                    <SelectItem key={s} value={String(s)}>
+                      Semester {s}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.semester && <p className="text-xs text-destructive">{errors.semester.message}</p>}
+              {errors.semester && (
+                <p className="text-xs text-destructive">{errors.semester.message}</p>
+              )}
             </div>
 
             {/* Gender */}
@@ -277,7 +308,9 @@ function AddStudent() {
                   setValue("gender", v as "Male" | "Female" | "Other", { shouldValidate: true })
                 }
               >
-                <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Male">Male</SelectItem>
                   <SelectItem value="Female">Female</SelectItem>
@@ -290,8 +323,15 @@ function AddStudent() {
             {/* Initial Password */}
             <div className="space-y-1.5">
               <Label htmlFor="password">Initial Password</Label>
-              <Input id="password" type="password" placeholder="Min 6 characters" {...register("password")} />
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+              <Input
+                id="password"
+                type="password"
+                placeholder="Min 6 characters"
+                {...register("password")}
+              />
+              {errors.password && (
+                <p className="text-xs text-destructive">{errors.password.message}</p>
+              )}
             </div>
 
             {/* Action buttons */}
@@ -299,7 +339,9 @@ function AddStudent() {
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Saving…" : "Add Student"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => reset()}>Reset</Button>
+              <Button type="button" variant="outline" onClick={() => reset()}>
+                Reset
+              </Button>
             </div>
           </form>
         </CardContent>
@@ -312,12 +354,16 @@ function AddStudent() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Upload student details with USN, student name, email, department, semester, and initial password.
+            Upload student details with USN, student name, email, department, semester, and initial
+            password.
           </p>
 
           {/* Drag-and-drop zone */}
           <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
             onDragLeave={() => setDragOver(false)}
             onDrop={onExcelDrop}
             className={cn(
@@ -369,7 +415,12 @@ function AddStudent() {
                 {excelResult ? (
                   <CheckCircle2 className="h-5 w-5 text-success" />
                 ) : (
-                  <Button size="icon" variant="ghost" disabled={excelSubmitting} onClick={clearExcelFile}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={excelSubmitting}
+                    onClick={clearExcelFile}
+                  >
                     <X className="h-4 w-4" />
                   </Button>
                 )}
@@ -478,73 +529,82 @@ function AddStudent() {
               <p className="text-sm text-muted-foreground">No students found.</p>
             ) : filteredStudents.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No students found matching your search. Try a different name, USN, email, or department.
+                No students found matching your search. Try a different name, USN, email, or
+                department.
               </p>
             ) : (
-              <div className="rounded-md border overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b bg-muted/50 text-muted-foreground">
-                    <tr>
-                      <th className="h-10 px-4 text-center font-medium w-16">S.No</th>
-                      <th className="h-10 px-4 text-left font-medium">Student Name</th>
-                      <th className="h-10 px-4 text-left font-medium">USN</th>
-                      <th className="h-10 px-4 text-left font-medium">Email</th>
-                      <th className="h-10 px-4 text-left font-medium">Department</th>
-                      <th className="h-10 px-4 text-left font-medium">Semester</th>
-                      <th className="h-10 px-4 text-left font-medium">Gender</th>
-                      <th className="h-10 px-4 text-center font-medium w-20">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredStudents.map((student, index) => (
-                      <tr
-                        key={student.student_id}
-                        className="border-b last:border-0 hover:bg-muted/50 transition-colors"
-                      >
-                        <td className="p-4 align-middle text-center text-muted-foreground">{index + 1}</td>
-                        <td className="p-4 align-middle font-medium">{student.student_name}</td>
-                        <td className="p-4 align-middle font-mono text-xs">{student.usn}</td>
-                        <td className="p-4 align-middle text-muted-foreground">{student.email ?? "—"}</td>
-                        <td className="p-4 align-middle">{student.department}</td>
-                        <td className="p-4 align-middle">{student.semester ?? "—"}</td>
-                        <td className="p-4 align-middle">{student.gender ?? "—"}</td>
-                        <td className="p-4 align-middle text-center">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Student?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to remove this student from the current list?<br /><br />
-                                  <strong>Student Name:</strong> {student.student_name}<br />
-                                  <strong>USN:</strong> {student.usn}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction 
-                                  onClick={() => handleDeleteStudent(student.student_id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Remove
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-16 text-center">S.No</TableHead>
+                    <TableHead>Student Name</TableHead>
+                    <TableHead>USN</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Semester</TableHead>
+                    <TableHead>Gender</TableHead>
+                    <TableHead className="w-20 text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStudents.map((student, index) => (
+                    <TableRow key={student.student_id}>
+                      <TableCell className="text-center text-muted-foreground">
+                        {index + 1}
+                      </TableCell>
+                      <TableCell className="font-semibold">{student.student_name}</TableCell>
+                      <TableCell className="font-mono text-[11px] uppercase tracking-wider">
+                        {student.usn}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {student.email ?? "—"}
+                      </TableCell>
+                      <TableCell>{student.department}</TableCell>
+                      <TableCell>{student.semester ?? "—"}</TableCell>
+                      <TableCell>{student.gender ?? "—"}</TableCell>
+                      <TableCell className="text-center">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Student?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to remove this student from the current list?
+                                <br />
+                                <br />
+                                <strong>Student Name:</strong> {student.student_name}
+                                <br />
+                                <strong>USN:</strong> {student.usn}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteStudent(student.student_id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Remove
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 }

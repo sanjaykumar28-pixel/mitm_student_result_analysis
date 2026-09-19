@@ -1,4 +1,11 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { SubjectResult } from "@/data/mockData";
 
@@ -43,7 +50,9 @@ export function ResultsTable({ subjects }: { subjects: SubjectResult[] }) {
               <TableCell className="text-center">{s.marks}</TableCell>
               <TableCell className="text-center">
                 {s.grade ? (
-                  <Badge variant="secondary" className={gradeClass[s.grade]}>{s.grade}</Badge>
+                  <Badge variant="secondary" className={gradeClass[s.grade]}>
+                    {s.grade}
+                  </Badge>
                 ) : (
                   "—"
                 )}

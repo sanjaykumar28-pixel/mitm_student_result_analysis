@@ -22,7 +22,12 @@ export function RankCard({ rank, name, department, cgpa }: RankCardProps) {
       <CardContent className="p-5">
         <div className="flex items-center gap-4">
           {meta ? (
-            <div className={cn("flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md", meta.gradient)}>
+            <div
+              className={cn(
+                "flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md",
+                meta.gradient,
+              )}
+            >
               <meta.icon className="h-7 w-7" />
             </div>
           ) : (
@@ -31,7 +36,9 @@ export function RankCard({ rank, name, department, cgpa }: RankCardProps) {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rank #{rank}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Rank #{rank}
+            </p>
             <p className="truncate text-lg font-semibold">{name}</p>
             <p className="truncate text-xs text-muted-foreground">{department}</p>
           </div>

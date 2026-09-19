@@ -208,7 +208,9 @@ export const adminService = {
   getResults: (params?: { department?: string; semester?: number; search?: string }) =>
     api.get<AdminResultsResponse>("/admin/results", { params }).then((r) => r.data),
   getResultDetails: (usn: string) =>
-    api.get<AdminResultDetailResponse>(`/admin/results/${encodeURIComponent(usn)}`).then((r) => r.data),
+    api
+      .get<AdminResultDetailResponse>(`/admin/results/${encodeURIComponent(usn)}`)
+      .then((r) => r.data),
   deleteResult: (id: string) => api.delete(`/admin/results/${id}`).then((r) => r.data),
   getToppers: () => api.get<AdminToppersResponse>("/admin/toppers").then((r) => r.data),
 };

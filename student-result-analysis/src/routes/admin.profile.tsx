@@ -26,7 +26,8 @@ function AdminProfile() {
 
   useEffect(() => {
     let cancelled = false;
-    adminService.getProfile()
+    adminService
+      .getProfile()
       .then((data) => {
         if (!cancelled) {
           setProfile(data);
@@ -39,7 +40,9 @@ function AdminProfile() {
       .finally(() => {
         if (!cancelled) setProfileLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const name = user?.name ?? "Administrator";
@@ -49,9 +52,20 @@ function AdminProfile() {
   const institution = "Not configured";
   const adminId = profile?.id ?? user?.id ?? "—";
   const status = "Active";
-  const joinedDate = profile ? new Date(profile.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "—";
+  const joinedDate = profile
+    ? new Date(profile.created_at).toLocaleDateString(undefined, {
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
 
-  const initials = name.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("") || "A";
+  const initials =
+    name
+      .split(" ")
+      .map((p) => p[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("") || "A";
 
   const startEdit = () => {
     setEditForm({ email });
@@ -87,8 +101,11 @@ function AdminProfile() {
 
   return (
     <div className="space-y-6 pb-8 animate-in fade-in duration-300">
-      <PageHeader title="Admin Profile" subtitle="Manage your administrator account settings and information." />
-      
+      <PageHeader
+        title="Admin Profile"
+        subtitle="Manage your administrator account settings and information."
+      />
+
       {/* Profile Header */}
       <Card className="overflow-hidden border-none shadow-md">
         <div className="h-32 w-full bg-gradient-to-r from-primary/80 to-primary"></div>
@@ -102,7 +119,9 @@ function AdminProfile() {
             <div className="mt-4 flex flex-1 flex-col items-center text-center sm:mt-0 sm:items-start sm:text-left">
               <h2 className="text-3xl font-bold tracking-tight text-foreground">{name}</h2>
               <div className="mt-1 flex flex-wrap items-center justify-center gap-3 text-sm text-muted-foreground sm:justify-start">
-                <span className="flex items-center gap-1"><Mail className="h-4 w-4" /> {email}</span>
+                <span className="flex items-center gap-1">
+                  <Mail className="h-4 w-4" /> {email}
+                </span>
                 <span className="hidden sm:inline">•</span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
                   <ShieldCheck className="h-3.5 w-3.5" />
@@ -111,18 +130,22 @@ function AdminProfile() {
               </div>
             </div>
           </div>
-          
+
           <div className="mt-8 grid grid-cols-2 gap-4 rounded-xl bg-muted/40 p-4 sm:grid-cols-4">
             <div className="flex flex-col">
               <span className="text-xs font-medium uppercase text-muted-foreground">Admin ID</span>
               <span className="mt-1 text-sm font-semibold">{adminId}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-medium uppercase text-muted-foreground">Department</span>
+              <span className="text-xs font-medium uppercase text-muted-foreground">
+                Department
+              </span>
               <span className="mt-1 text-sm font-semibold">{department}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-medium uppercase text-muted-foreground">Joined Date</span>
+              <span className="text-xs font-medium uppercase text-muted-foreground">
+                Joined Date
+              </span>
               <span className="mt-1 text-sm font-semibold">{joinedDate}</span>
             </div>
             <div className="flex flex-col">
@@ -172,7 +195,12 @@ function AdminProfile() {
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Email Address</div>
                   {isEditing ? (
-                    <Input type="email" className="mt-1 h-8" value={editForm.email} onChange={(e) => setEditForm({ email: e.target.value })} />
+                    <Input
+                      type="email"
+                      className="mt-1 h-8"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ email: e.target.value })}
+                    />
                   ) : (
                     <div className="mt-1 text-base font-medium">{email}</div>
                   )}
@@ -205,7 +233,9 @@ function AdminProfile() {
                   <div className="mt-1 text-base font-medium">{department}</div>
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground">College / Institution</div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    College / Institution
+                  </div>
                   <div className="mt-1 text-base font-medium">{institution}</div>
                 </div>
                 <div>
@@ -242,7 +272,7 @@ function AdminProfile() {
                   <Key className="mr-2 h-4 w-4" /> Change Password
                 </Button>
               </div>
-              
+
               <div className="border-t pt-4">
                 <h3 className="text-sm font-medium text-foreground">Two-Factor Authentication</h3>
                 <p className="mt-1 text-sm text-muted-foreground">

@@ -25,9 +25,7 @@ export function DashboardLayout({ items, children }: Props) {
           onToggleCollapse={() => setCollapsed((c) => !c)}
           collapsed={collapsed}
         />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 animate-in fade-in duration-300">
-          {children}
-        </main>
+        <main className="flex-1 p-4 md:p-6 lg:p-8 animate-in fade-in duration-300">{children}</main>
       </div>
     </div>
   );

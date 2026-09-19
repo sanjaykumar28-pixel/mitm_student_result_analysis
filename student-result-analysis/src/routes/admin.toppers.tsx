@@ -34,7 +34,9 @@ function toTopperEntry(row: AdminTopperRow): TopperEntry {
 
 function Toppers() {
   const [top10, setTop10] = useState<TopperEntry[]>([]);
-  const [semesterToppers, setSemesterToppers] = useState<Array<{ semester: number; studentName: string; cgpa: number }>>([]);
+  const [semesterToppers, setSemesterToppers] = useState<
+    Array<{ semester: number; studentName: string; cgpa: number }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +45,7 @@ function Toppers() {
     setLoading(true);
     setError(null);
 
-    Promise.all([
-      adminService.getToppers(),
-      adminService.getResults(),
-    ])
+    Promise.all([adminService.getToppers(), adminService.getResults()])
       .then(([toppersData, resultsData]) => {
         if (cancelled) return;
 
@@ -72,9 +71,7 @@ function Toppers() {
           }
         }
 
-        setSemesterToppers(
-          Object.values(semMap).sort((a, b) => a.semester - b.semester)
-        );
+        setSemesterToppers(Object.values(semMap).sort((a, b) => a.semester - b.semester));
       })
       .catch((err) => {
         if (cancelled) return;
@@ -91,12 +88,14 @@ function Toppers() {
     };
   }, []);
 
-
   const top3 = top10.slice(0, 3);
 
   return (
-    <>
-      <PageHeader title="Top Performers" subtitle="Highest performing students across the institution." />
+    <div className="flex flex-col gap-6 pb-8 animate-in fade-in duration-500">
+      <PageHeader
+        title="Top Performers"
+        subtitle="Highest performing students across the institution."
+      />
 
       {loading ? (
         <Card>
@@ -121,13 +120,21 @@ function Toppers() {
         <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {top3.map((s, i) => (
-              <RankCard key={s.id} rank={i + 1} name={s.name} department={s.department} cgpa={s.cgpa} />
+              <RankCard
+                key={s.id}
+                rank={i + 1}
+                name={s.name}
+                department={s.department}
+                cgpa={s.cgpa}
+              />
             ))}
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card>
-              <CardHeader><CardTitle className="text-base">CGPA Comparison (Top 10)</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">CGPA Comparison (Top 10)</CardTitle>
+              </CardHeader>
               <CardContent>
                 <BarChartComponent
                   data={top10.map((s) => ({ name: s.name.split(" ")[0], cgpa: s.cgpa }))}
@@ -137,11 +144,15 @@ function Toppers() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Semester Topper List</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Semester Topper List</CardTitle>
+              </CardHeader>
               <CardContent>
                 {semesterToppers.length === 0 ? (
                   <div className="flex h-[200px] items-center justify-center">
-                    <p className="text-sm text-muted-foreground">No semester topper data available.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No semester topper data available.
+                    </p>
                   </div>
                 ) : (
                   <>
@@ -174,11 +185,15 @@ function Toppers() {
           </div>
 
           <Card className="mt-6">
-            <CardHeader><CardTitle className="text-base">Top 10 Students</CardTitle></CardHeader>
-            <CardContent><TopperTable toppers={top10} /></CardContent>
+            <CardHeader>
+              <CardTitle className="text-base">Top 10 Students</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TopperTable toppers={top10} />
+            </CardContent>
           </Card>
         </>
       )}
-    </>
+    </div>
   );
 }

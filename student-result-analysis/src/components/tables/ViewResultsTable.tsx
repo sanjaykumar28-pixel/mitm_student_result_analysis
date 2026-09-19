@@ -3,11 +3,14 @@ import { FileText, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   adminService,
   type AdminResultDetailResponse,
@@ -30,12 +33,9 @@ function CgpaBadge({ value }: { value: number | null | undefined }) {
     return <span className="text-muted-foreground">—</span>;
   const num = Number(value);
   let colorClass = "bg-primary/10 text-primary border border-primary/20";
-  if (num >= 9)
-    colorClass = "bg-emerald-50 text-emerald-700 border border-emerald-200";
-  else if (num >= 8)
-    colorClass = "bg-blue-50 text-blue-700 border border-blue-200";
-  else if (num >= 7)
-    colorClass = "bg-amber-50 text-amber-700 border border-amber-200";
+  if (num >= 9) colorClass = "bg-emerald-50 text-emerald-700 border border-emerald-200";
+  else if (num >= 8) colorClass = "bg-blue-50 text-blue-700 border border-blue-200";
+  else if (num >= 7) colorClass = "bg-amber-50 text-amber-700 border border-amber-200";
   else colorClass = "bg-red-50 text-red-600 border border-red-200";
   return (
     <span
@@ -56,9 +56,15 @@ function AdminPrintCard({ row, detail }: { row: AdminResultRow; detail: AdminRes
     <div id="admin-print-card" className="hidden print:block text-black bg-white">
       {/* Header */}
       <div className="text-center mb-6">
-        <h1 className="text-xl font-bold uppercase tracking-wide">Maharaja Institute of Technology Mysore</h1>
-        <p className="text-xs md:text-sm font-semibold mt-1">An Autonomous Institution Affiliated to VTU</p>
-        <h2 className="text-base font-bold mt-3 underline underline-offset-4 decoration-2">Provisional Grade Card</h2>
+        <h1 className="text-xl font-bold uppercase tracking-wide">
+          Maharaja Institute of Technology Mysore
+        </h1>
+        <p className="text-xs md:text-sm font-semibold mt-1">
+          An Autonomous Institution Affiliated to VTU
+        </p>
+        <h2 className="text-base font-bold mt-3 underline underline-offset-4 decoration-2">
+          Provisional Grade Card
+        </h2>
         <p className="text-xs font-medium mt-1">Semester {row.semester} Examination</p>
       </div>
 
@@ -104,8 +110,12 @@ function AdminPrintCard({ row, detail }: { row: AdminResultRow; detail: AdminRes
               <th className="border border-black p-2 text-center font-bold w-[7%]">Total</th>
               <th className="border border-black p-2 text-center font-bold w-[9%]">Grade Point</th>
               <th className="border border-black p-2 text-center font-bold w-[7%]">Grade</th>
-              <th className="border border-black p-2 text-center font-bold w-[11%]">Credits Reg.</th>
-              <th className="border border-black p-2 text-center font-bold w-[11%]">Credits Ear.</th>
+              <th className="border border-black p-2 text-center font-bold w-[11%]">
+                Credits Reg.
+              </th>
+              <th className="border border-black p-2 text-center font-bold w-[11%]">
+                Credits Ear.
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -116,13 +126,27 @@ function AdminPrintCard({ row, detail }: { row: AdminResultRow; detail: AdminRes
               return (
                 <tr key={subject.subject_code + idx}>
                   <td className="border border-black p-2 text-center">{idx + 1}</td>
-                  <td className="border border-black p-2 text-center font-mono">{subject.subject_code}</td>
-                  <td className="border border-black p-2 text-left uppercase break-words leading-tight">{subject.subject_name}</td>
-                  <td className="border border-black p-2 text-center">{subject.internal_marks ?? "—"}</td>
-                  <td className="border border-black p-2 text-center">{subject.external_marks ?? "—"}</td>
-                  <td className="border border-black p-2 text-center">{subject.total_marks ?? "—"}</td>
-                  <td className="border border-black p-2 text-center">{subject.grade_point ?? "—"}</td>
-                  <td className="border border-black p-2 text-center font-bold">{subject.grade ?? "—"}</td>
+                  <td className="border border-black p-2 text-center font-mono">
+                    {subject.subject_code}
+                  </td>
+                  <td className="border border-black p-2 text-left uppercase break-words leading-tight">
+                    {subject.subject_name}
+                  </td>
+                  <td className="border border-black p-2 text-center">
+                    {subject.internal_marks ?? "—"}
+                  </td>
+                  <td className="border border-black p-2 text-center">
+                    {subject.external_marks ?? "—"}
+                  </td>
+                  <td className="border border-black p-2 text-center">
+                    {subject.total_marks ?? "—"}
+                  </td>
+                  <td className="border border-black p-2 text-center">
+                    {subject.grade_point ?? "—"}
+                  </td>
+                  <td className="border border-black p-2 text-center font-bold">
+                    {subject.grade ?? "—"}
+                  </td>
                   <td className="border border-black p-2 text-center">{credReg}</td>
                   <td className="border border-black p-2 text-center">{credEar}</td>
                 </tr>
@@ -130,20 +154,26 @@ function AdminPrintCard({ row, detail }: { row: AdminResultRow; detail: AdminRes
             })}
             {/* Total Row */}
             <tr className="font-bold">
-              <td className="border border-black p-2 text-center" colSpan={8}>Total</td>
+              <td className="border border-black p-2 text-center" colSpan={8}>
+                Total
+              </td>
               <td className="border border-black p-2 text-center">{totalCreditsReg}</td>
               <td className="border border-black p-2 text-center">{totalCreditsEar}</td>
             </tr>
             {/* SGPA Row */}
             <tr className="font-bold">
-              <td className="border border-black p-1.5 text-center" colSpan={8}>SGPA</td>
+              <td className="border border-black p-1.5 text-center" colSpan={8}>
+                SGPA
+              </td>
               <td className="border border-black p-1.5 text-center" colSpan={2}>
                 {detail.sgpa != null ? Number(detail.sgpa).toFixed(2) : "—"}
               </td>
             </tr>
             {/* CGPA Row */}
             <tr className="font-bold">
-              <td className="border border-black p-1.5 text-center" colSpan={8}>CGPA</td>
+              <td className="border border-black p-1.5 text-center" colSpan={8}>
+                CGPA
+              </td>
               <td className="border border-black p-1.5 text-center" colSpan={2}>
                 {detail.cgpa != null ? Number(detail.cgpa).toFixed(2) : "—"}
               </td>
@@ -154,24 +184,35 @@ function AdminPrintCard({ row, detail }: { row: AdminResultRow; detail: AdminRes
 
       {/* Total Points / SGPA / CGPA Summary Line */}
       <div className="flex justify-end gap-8 text-xs font-bold my-5 py-2.5 border-y border-black/40">
-        <div>Total Points : <span className="font-mono font-normal">{detail.total_points.toFixed(2)}</span></div>
-        <div>SGPA : <span className="font-mono font-normal">{detail.sgpa != null ? Number(detail.sgpa).toFixed(2) : "—"}</span></div>
-        <div>CGPA : <span className="font-mono font-normal">{detail.cgpa != null ? Number(detail.cgpa).toFixed(2) : "—"}</span></div>
+        <div>
+          Total Points :{" "}
+          <span className="font-mono font-normal">{detail.total_points.toFixed(2)}</span>
+        </div>
+        <div>
+          SGPA :{" "}
+          <span className="font-mono font-normal">
+            {detail.sgpa != null ? Number(detail.sgpa).toFixed(2) : "—"}
+          </span>
+        </div>
+        <div>
+          CGPA :{" "}
+          <span className="font-mono font-normal">
+            {detail.cgpa != null ? Number(detail.cgpa).toFixed(2) : "—"}
+          </span>
+        </div>
       </div>
 
       {/* Footer Signatures */}
       <div className="flex justify-between items-end mt-8 mb-4 font-semibold text-xs">
-        <div>
-          Date: {new Date().toLocaleDateString("en-GB").replace(/\//g, "-")}
-        </div>
-        <div className="text-right">
-          Controller of Examinations
-        </div>
+        <div>Date: {new Date().toLocaleDateString("en-GB").replace(/\//g, "-")}</div>
+        <div className="text-right">Controller of Examinations</div>
       </div>
 
       <hr className="border-black mb-2" />
       <p className="text-[10px] text-justify font-medium leading-tight">
-        <span className="font-bold">Note:</span> These are provisional results. The final official results will be provided by the university/institution. Any discrepancies should be reported to the Controller of Examinations immediately.
+        <span className="font-bold">Note:</span> These are provisional results. The final official
+        results will be provided by the university/institution. Any discrepancies should be reported
+        to the Controller of Examinations immediately.
       </p>
     </div>
   );
@@ -198,11 +239,17 @@ function ResultSheetModal({
   onClose: () => void;
 }) {
   if (!row) return null;
-  const selectedDetail = detail?.semesters.find((item) => item.semester === selectedSemester) ?? null;
+  const selectedDetail =
+    detail?.semesters.find((item) => item.semester === selectedSemester) ?? null;
   const displaySubjects: AdminResultSubject[] = selectedDetail?.subjects ?? [];
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent className="max-w-[95vw] lg:max-w-5xl xl:max-w-[1200px] w-full max-h-[90vh] overflow-y-auto overflow-x-hidden p-0">
         {/* ── ON-SCREEN MODAL VIEW ── */}
         <div className="print:hidden">
@@ -225,7 +272,12 @@ function ResultSheetModal({
             <div className="rounded-xl border bg-card p-5 shadow-sm flex flex-col sm:flex-row justify-between gap-6">
               <div className="flex items-center gap-4">
                 <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-xl font-bold text-primary select-none shrink-0">
-                  {row.student_name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
+                  {row.student_name
+                    .split(" ")
+                    .slice(0, 2)
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase()}
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-foreground uppercase tracking-wide leading-tight">
@@ -251,13 +303,17 @@ function ResultSheetModal({
                     disabled={loading || !detail}
                   >
                     {detail?.semesters.map((item) => (
-                      <option key={item.semester} value={item.semester}>Semester {item.semester}</option>
+                      <option key={item.semester} value={item.semester}>
+                        Semester {item.semester}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground w-24">CGPA</span>
-                  <span className="font-semibold text-foreground">: {selectedDetail?.cgpa != null ? Number(selectedDetail.cgpa).toFixed(2) : "—"}</span>
+                  <span className="font-semibold text-foreground">
+                    : {selectedDetail?.cgpa != null ? Number(selectedDetail.cgpa).toFixed(2) : "—"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -270,42 +326,76 @@ function ResultSheetModal({
                 </h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/10">
-                        {["Subject Code", "Subject Name", "Credit", "Grade", "CIE Marks (50)", "SEE Marks (50)", "Total (100)", "Grade Point"].map((h) => (
-                        <th
-                          key={h}
-                          className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
-                        >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {[
+                        "Subject Code",
+                        "Subject Name",
+                        "Credit",
+                        "Grade",
+                        "CIE Marks (50)",
+                        "SEE Marks (50)",
+                        "Total (100)",
+                        "Grade Point",
+                      ].map((h) => (
+                        <TableHead key={h} className="whitespace-nowrap">
                           {h}
-                        </th>
+                        </TableHead>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {loading ? (
-                      <tr><td colSpan={8} className="px-5 py-8 text-center text-muted-foreground">Loading result details...</td></tr>
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground h-24">
+                          Loading result details...
+                        </TableCell>
+                      </TableRow>
                     ) : error ? (
-                      <tr><td colSpan={8} className="px-5 py-8 text-center text-destructive">{error}</td></tr>
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-destructive h-24">
+                          {error}
+                        </TableCell>
+                      </TableRow>
                     ) : displaySubjects.length === 0 ? (
-                      <tr><td colSpan={8} className="px-5 py-8 text-center text-muted-foreground">No subjects found for this semester.</td></tr>
-                    ) : displaySubjects.map((subject, idx) => {
-                      return (
-                        <tr key={subject.subject_code + idx} className="hover:bg-muted/5 transition-colors">
-                          <td className="px-5 py-3 font-mono text-foreground">{subject.subject_code}</td>
-                          <td className="px-5 py-3 text-foreground whitespace-normal min-w-[200px]">{subject.subject_name}</td>
-                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{subject.credits ?? "—"}</td>
-                          <td className="px-5 py-3 font-bold text-primary">{subject.grade ?? "—"}</td>
-                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{subject.internal_marks ?? "—"}</td>
-                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{subject.external_marks ?? "—"}</td>
-                          <td className="px-5 py-3 tabular-nums font-semibold text-foreground">{subject.total_marks ?? "—"}</td>
-                          <td className="px-5 py-3 tabular-nums text-muted-foreground">{subject.grade_point ?? "—"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground h-24">
+                          No subjects found for this semester.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      displaySubjects.map((subject, idx) => {
+                        return (
+                          <TableRow key={subject.subject_code + idx}>
+                            <TableCell className="font-mono">{subject.subject_code}</TableCell>
+                            <TableCell className="whitespace-normal min-w-[200px]">
+                              {subject.subject_name}
+                            </TableCell>
+                            <TableCell className="tabular-nums text-muted-foreground">
+                              {subject.credits ?? "—"}
+                            </TableCell>
+                            <TableCell className="font-bold text-primary">
+                              {subject.grade ?? "—"}
+                            </TableCell>
+                            <TableCell className="tabular-nums text-muted-foreground">
+                              {subject.internal_marks ?? "—"}
+                            </TableCell>
+                            <TableCell className="tabular-nums text-muted-foreground">
+                              {subject.external_marks ?? "—"}
+                            </TableCell>
+                            <TableCell className="tabular-nums font-semibold">
+                              {subject.total_marks ?? "—"}
+                            </TableCell>
+                            <TableCell className="tabular-nums text-muted-foreground">
+                              {subject.grade_point ?? "—"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </section>
 
@@ -315,19 +405,23 @@ function ResultSheetModal({
                 {[
                   { label: "Total Credits", value: selectedDetail?.total_credits ?? "—" },
                   { label: "Total Points", value: selectedDetail?.total_points.toFixed(2) ?? "—" },
-                  { label: "SGPA", value: selectedDetail?.sgpa != null ? Number(selectedDetail.sgpa).toFixed(2) : "—" },
-                  { label: "CGPA", value: selectedDetail?.cgpa != null ? Number(selectedDetail.cgpa).toFixed(2) : "—" },
+                  {
+                    label: "SGPA",
+                    value:
+                      selectedDetail?.sgpa != null ? Number(selectedDetail.sgpa).toFixed(2) : "—",
+                  },
+                  {
+                    label: "CGPA",
+                    value:
+                      selectedDetail?.cgpa != null ? Number(selectedDetail.cgpa).toFixed(2) : "—",
+                  },
                 ].map(({ label, value }) => (
                   <div
                     key={label}
                     className="rounded-xl border bg-card p-4 shadow-sm flex flex-col items-center justify-center text-center"
                   >
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {label}
-                    </p>
-                    <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">
-                      {value}
-                    </p>
+                    <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                    <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">{value}</p>
                   </div>
                 ))}
               </div>
@@ -339,11 +433,7 @@ function ResultSheetModal({
                 Generated: {new Date().toLocaleDateString("en-GB")} · Provisional result only
               </span>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onClose}
-                >
+                <Button variant="outline" size="sm" onClick={onClose}>
                   Close
                 </Button>
                 <Button
@@ -388,13 +478,16 @@ export function ViewResultsTable({ results }: ViewResultsTableProps) {
     let cancelled = false;
     setDetailLoading(true);
     setDetailError(null);
-    adminService.getResultDetails(viewTarget.usn)
+    adminService
+      .getResultDetails(viewTarget.usn)
       .then((data) => {
         if (cancelled) return;
         setDetail(data);
-        setSelectedSemester(data.semesters.some((item) => item.semester === viewTarget.semester)
-          ? viewTarget.semester
-          : data.semesters[0]?.semester ?? null);
+        setSelectedSemester(
+          data.semesters.some((item) => item.semester === viewTarget.semester)
+            ? viewTarget.semester
+            : (data.semesters[0]?.semester ?? null),
+        );
       })
       .catch((error) => {
         if (cancelled) return;
@@ -431,8 +524,7 @@ export function ViewResultsTable({ results }: ViewResultsTableProps) {
         </div>
         <p className="text-sm font-semibold text-foreground">No results found</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          No stored results match your filters. Try adjusting the search or
-          department filter.
+          No stored results match your filters. Try adjusting the search or department filter.
         </p>
       </div>
     );
@@ -489,55 +581,34 @@ export function ViewResultsTable({ results }: ViewResultsTableProps) {
 
       <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40">
-                <th className="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground w-16">
-                  S.No
-                </th>
-                <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  ID
-                </th>
-                <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Name
-                </th>
-                <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:table-cell">
-                  Department
-                </th>
-                <th className="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Sem
-                </th>
-                <th className="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden sm:table-cell">
-                  SGPA
-                </th>
-                <th className="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  CGPA
-                </th>
-                <th className="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  View
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16 text-center">S.No</TableHead>
+                <TableHead>ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead className="hidden md:table-cell">Department</TableHead>
+                <TableHead className="text-center">Sem</TableHead>
+                <TableHead className="text-center hidden sm:table-cell">SGPA</TableHead>
+                <TableHead className="text-center">CGPA</TableHead>
+                <TableHead className="text-center">View</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {results.map((row, index) => (
-                <tr
-                  key={row.result_id}
-                  className="group transition-colors hover:bg-muted/30"
-                >
+                <TableRow key={row.result_id}>
                   {/* S.No */}
-                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium text-xs w-16">
-                    {index + 1}
-                  </td>
+                  <TableCell className="text-center text-muted-foreground">{index + 1}</TableCell>
 
                   {/* USN */}
-                  <td className="px-4 py-3.5">
-                    <span className="font-mono text-xs font-medium text-primary bg-primary/8 rounded-md px-1.5 py-0.5 border border-primary/15">
+                  <TableCell>
+                    <span className="font-mono text-[11px] font-bold text-primary bg-primary/10 rounded-md px-2 py-1 uppercase tracking-wider">
                       {row.usn}
                     </span>
-                  </td>
+                  </TableCell>
 
                   {/* Name */}
-                  <td className="px-4 py-3.5">
+                  <TableCell>
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary select-none">
                         {row.student_name
@@ -548,44 +619,36 @@ export function ViewResultsTable({ results }: ViewResultsTableProps) {
                           .toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-foreground truncate">
-                          {row.student_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground md:hidden truncate">
+                        <p className="font-semibold text-foreground truncate">{row.student_name}</p>
+                        <p className="text-[11px] uppercase tracking-wider text-muted-foreground md:hidden truncate">
                           {row.department}
                         </p>
                       </div>
                     </div>
-                  </td>
+                  </TableCell>
 
                   {/* Department */}
-                  <td className="px-4 py-3.5 hidden md:table-cell">
+                  <TableCell className="hidden md:table-cell">
                     <Badge variant="secondary" className="font-normal whitespace-nowrap">
                       {row.department}
                     </Badge>
-                  </td>
+                  </TableCell>
 
                   {/* Semester */}
-                  <td className="px-4 py-3.5 text-center">
-                    <span className="tabular-nums text-foreground font-medium">
-                      {row.semester}
-                    </span>
-                  </td>
+                  <TableCell className="text-center font-medium">{row.semester}</TableCell>
 
                   {/* SGPA */}
-                  <td className="px-4 py-3.5 text-center hidden sm:table-cell">
-                    <span className="tabular-nums text-muted-foreground">
-                      {fmt(row.sgpa)}
-                    </span>
-                  </td>
+                  <TableCell className="text-center hidden sm:table-cell">
+                    <span className="tabular-nums text-muted-foreground">{fmt(row.sgpa)}</span>
+                  </TableCell>
 
                   {/* CGPA */}
-                  <td className="px-4 py-3.5 text-center">
+                  <TableCell className="text-center">
                     <CgpaBadge value={row.cgpa} />
-                  </td>
+                  </TableCell>
 
                   {/* View More */}
-                  <td className="px-4 py-3.5 text-center">
+                  <TableCell className="text-center">
                     <Button
                       variant="outline"
                       size="sm"
@@ -599,11 +662,11 @@ export function ViewResultsTable({ results }: ViewResultsTableProps) {
                       <FileText className="h-3.5 w-3.5" />
                       View More
                     </Button>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
 
@@ -623,7 +686,10 @@ export function ViewResultsTable({ results }: ViewResultsTableProps) {
       {viewTarget && detail && selectedSemester !== null && (
         <AdminPrintCard
           row={viewTarget}
-          detail={detail.semesters.find((item) => item.semester === selectedSemester) ?? detail.semesters[0]}
+          detail={
+            detail.semesters.find((item) => item.semester === selectedSemester) ??
+            detail.semesters[0]
+          }
         />
       )}
     </>

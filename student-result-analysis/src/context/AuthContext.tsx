@@ -123,7 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((current) => {
       if (!current) return current;
       const updatedUser = { ...current, email: updates.email };
-      const token = window.localStorage.getItem(TOKEN_KEY) ?? window.sessionStorage.getItem(TOKEN_KEY);
+      const token =
+        window.localStorage.getItem(TOKEN_KEY) ?? window.sessionStorage.getItem(TOKEN_KEY);
       if (token) {
         const remember = Boolean(window.localStorage.getItem(TOKEN_KEY));
         persistAuth(updatedUser, token, remember);
@@ -133,7 +134,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout, updateUser }}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated: !!user, loading, login, logout, updateUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

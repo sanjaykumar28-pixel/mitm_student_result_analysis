@@ -1,8 +1,15 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
 export interface TopperEntry {
-  id: string;          // USN
+  id: string; // USN
   name: string;
   department: string;
   semester: number;
@@ -34,17 +41,31 @@ export function TopperTable({ toppers }: { toppers: TopperEntry[] }) {
           {toppers.map((s, i) => (
             <TableRow key={s.id}>
               <TableCell>
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                <span
+                  className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold shadow-sm ${
+                    i === 0
+                      ? "bg-amber-400 text-white"
+                      : i === 1
+                        ? "bg-slate-300 text-slate-700"
+                        : i === 2
+                          ? "bg-orange-400 text-white"
+                          : "bg-muted text-muted-foreground"
+                  }`}
+                >
                   {i + 1}
                 </span>
               </TableCell>
               <TableCell>
-                <div className="font-medium">{s.name}</div>
-                <div className="text-xs text-muted-foreground">{s.id}</div>
+                <div className="font-semibold">{s.name}</div>
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  {s.id}
+                </div>
               </TableCell>
               <TableCell className="hidden md:table-cell">{s.department}</TableCell>
               <TableCell className="text-right">
-                <Badge variant="secondary" className="bg-primary/10 text-primary">{s.cgpa.toFixed(2)}</Badge>
+                <Badge variant="secondary" className="bg-primary/10 text-primary">
+                  {s.cgpa.toFixed(2)}
+                </Badge>
               </TableCell>
             </TableRow>
           ))}

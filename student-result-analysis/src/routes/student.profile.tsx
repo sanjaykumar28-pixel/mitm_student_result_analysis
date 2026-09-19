@@ -5,10 +5,21 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
 import { studentService, type StudentDashboardResponse } from "@/services/studentService";
-import { 
-  User, Mail, BookOpen, Award, ShieldCheck, 
-  GraduationCap, Building, CheckCircle2, Circle, 
-  CreditCard, Activity, Edit2, Save, X
+import {
+  User,
+  Mail,
+  BookOpen,
+  Award,
+  ShieldCheck,
+  GraduationCap,
+  Building,
+  CheckCircle2,
+  Circle,
+  CreditCard,
+  Activity,
+  Edit2,
+  Save,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,10 +34,15 @@ function StudentProfile() {
 
   useEffect(() => {
     let cancelled = false;
-    studentService.getDashboard().then((payload) => {
-      if (!cancelled) setData(payload);
-    }).catch(() => {});
-    return () => { cancelled = true; };
+    studentService
+      .getDashboard()
+      .then((payload) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const [localProfile, setLocalProfile] = useState<{
@@ -40,7 +56,7 @@ function StudentProfile() {
     name: "",
     email: "",
     department: "",
-    semester: ""
+    semester: "",
   });
 
   const name = localProfile.name ?? user?.name ?? "Student";
@@ -48,21 +64,28 @@ function StudentProfile() {
   const usn = user?.usn || user?.id || data?.usn || "—";
   const department = localProfile.department ?? data?.department ?? user?.department ?? "—";
   const semester = localProfile.semester ?? data?.semester ?? user?.semester ?? "—";
-  
-  const initials = name.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("") || "S";
-  
+
+  const initials =
+    name
+      .split(" ")
+      .map((p) => p[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("") || "S";
+
   const sgpa = data?.current_sgpa ? data.current_sgpa.toFixed(2) : "—";
   const cgpa = data?.overall_cgpa ? data.overall_cgpa.toFixed(2) : "—";
-  const currentSemester = localProfile.semester && !isNaN(parseInt(localProfile.semester, 10)) 
-    ? parseInt(localProfile.semester, 10) 
-    : (data?.current_semester || semester);
+  const currentSemester =
+    localProfile.semester && !isNaN(parseInt(localProfile.semester, 10))
+      ? parseInt(localProfile.semester, 10)
+      : data?.current_semester || semester;
 
   const startEdit = () => {
     setEditForm({
       name,
       email,
       department: department.toString(),
-      semester: semester.toString()
+      semester: semester.toString(),
     });
     setIsEditing(true);
   };
@@ -76,17 +99,22 @@ function StudentProfile() {
       name: editForm.name,
       email: editForm.email,
       department: editForm.department,
-      semester: editForm.semester
+      semester: editForm.semester,
     });
     setIsEditing(false);
-    alert("Profile updated locally. A backend update API is required for permanent database changes.");
+    alert(
+      "Profile updated locally. A backend update API is required for permanent database changes.",
+    );
   };
   const status = data?.academic_status || "Active";
 
   return (
     <div className="space-y-6 pb-8 animate-in fade-in duration-300">
-      <PageHeader title="Student Profile" subtitle="Your personal information and academic details." />
-      
+      <PageHeader
+        title="Student Profile"
+        subtitle="Your personal information and academic details."
+      />
+
       {/* 1. Profile Header */}
       <Card className="overflow-hidden border-none shadow-md">
         <div className="h-32 w-full bg-gradient-to-r from-primary/80 to-primary"></div>
@@ -100,7 +128,9 @@ function StudentProfile() {
             <div className="mt-4 flex flex-1 flex-col items-center text-center sm:mt-0 sm: items-start sm:text-left">
               <h2 className="text-3xl font-bold tracking-tight text-foreground">{name}</h2>
               <div className="mt-1 flex flex-wrap items-center justify-center gap-3 text-sm text-muted-foreground sm:justify-start">
-                <span className="flex items-center gap-1"><Mail className="h-4 w-4" /> {email}</span>
+                <span className="flex items-center gap-1">
+                  <Mail className="h-4 w-4" /> {email}
+                </span>
                 <span className="hidden sm:inline">•</span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
                   <ShieldCheck className="h-3.5 w-3.5" />
@@ -109,19 +139,25 @@ function StudentProfile() {
               </div>
             </div>
           </div>
-          
+
           <div className="mt-8 grid grid-cols-2 gap-4 rounded-xl bg-muted/40 p-4 sm:grid-cols-4">
             <div className="flex flex-col">
-              <span className="text-xs font-medium uppercase text-muted-foreground">Student ID / USN</span>
+              <span className="text-xs font-medium uppercase text-muted-foreground">
+                Student ID / USN
+              </span>
               <span className="mt-1 text-sm font-semibold">{usn}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-medium uppercase text-muted-foreground">Department</span>
+              <span className="text-xs font-medium uppercase text-muted-foreground">
+                Department
+              </span>
               <span className="mt-1 text-sm font-semibold">{department}</span>
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-medium uppercase text-muted-foreground">Semester</span>
-              <span className="mt-1 text-sm font-semibold">{semester !== "—" ? `Semester ${semester}` : "—"}</span>
+              <span className="mt-1 text-sm font-semibold">
+                {semester !== "—" ? `Semester ${semester}` : "—"}
+              </span>
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-medium uppercase text-muted-foreground">Status</span>
@@ -167,7 +203,11 @@ function StudentProfile() {
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Full Name</div>
                   {isEditing ? (
-                    <Input className="mt-1 h-8" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} />
+                    <Input
+                      className="mt-1 h-8"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    />
                   ) : (
                     <div className="mt-1 text-base font-medium">{name}</div>
                   )}
@@ -175,7 +215,11 @@ function StudentProfile() {
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Email Address</div>
                   {isEditing ? (
-                    <Input className="mt-1 h-8" value={editForm.email} onChange={(e) => setEditForm({...editForm, email: e.target.value})} />
+                    <Input
+                      className="mt-1 h-8"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    />
                   ) : (
                     <div className="mt-1 text-base font-medium">{email}</div>
                   )}
@@ -207,7 +251,11 @@ function StudentProfile() {
                     <Building className="h-4 w-4" /> Department
                   </div>
                   {isEditing ? (
-                    <Input className="mt-1 h-8" value={editForm.department} onChange={(e) => setEditForm({...editForm, department: e.target.value})} />
+                    <Input
+                      className="mt-1 h-8"
+                      value={editForm.department}
+                      onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    />
                   ) : (
                     <div className="mt-1 text-base font-medium">{department}</div>
                   )}
@@ -217,9 +265,16 @@ function StudentProfile() {
                     <BookOpen className="h-4 w-4" /> Current Semester
                   </div>
                   {isEditing ? (
-                    <Input className="mt-1 h-8" type="number" value={editForm.semester} onChange={(e) => setEditForm({...editForm, semester: e.target.value})} />
+                    <Input
+                      className="mt-1 h-8"
+                      type="number"
+                      value={editForm.semester}
+                      onChange={(e) => setEditForm({ ...editForm, semester: e.target.value })}
+                    />
                   ) : (
-                    <div className="mt-1 text-base font-medium">{currentSemester !== "—" ? `Semester ${currentSemester}` : "—"}</div>
+                    <div className="mt-1 text-base font-medium">
+                      {currentSemester !== "—" ? `Semester ${currentSemester}` : "—"}
+                    </div>
                   )}
                 </div>
                 <div>
@@ -260,15 +315,27 @@ function StudentProfile() {
                   <div className="mt-2 text-3xl font-bold text-primary">{cgpa}</div>
                 </div>
               </div>
-              
+
               {data?.recent_subjects && data.recent_subjects.length > 0 && (
                 <div className="mt-6">
-                  <div className="text-sm font-medium text-muted-foreground mb-3">Recent Subjects</div>
+                  <div className="text-sm font-medium text-muted-foreground mb-3">
+                    Recent Subjects
+                  </div>
                   <div className="space-y-2">
                     {data.recent_subjects.slice(0, 3).map((sub, i) => (
-                      <div key={i} className="flex items-center justify-between rounded-lg bg-muted/30 p-2 text-sm">
-                        <span className="truncate pr-4 font-medium" title={sub.name}>{sub.code}</span>
-                        <span className="font-semibold text-primary">{sub.marks} <span className="text-xs text-muted-foreground">({sub.grade || "-"})</span></span>
+                      <div
+                        key={i}
+                        className="flex items-center justify-between rounded-lg bg-muted/30 p-2 text-sm"
+                      >
+                        <span className="truncate pr-4 font-medium" title={sub.name}>
+                          {sub.code}
+                        </span>
+                        <span className="font-semibold text-primary">
+                          {sub.marks}{" "}
+                          <span className="text-xs text-muted-foreground">
+                            ({sub.grade || "-"})
+                          </span>
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -292,10 +359,12 @@ function StudentProfile() {
                     const semNumber = i + 1;
                     const isCompleted = semNumber < currentSemester;
                     const isCurrent = semNumber === currentSemester;
-                    
+
                     return (
                       <div key={semNumber} className="relative flex items-center gap-4 pl-6">
-                        <div className={`absolute -left-[11px] flex h-5 w-5 items-center justify-center rounded-full bg-background ${isCompleted ? "text-primary" : isCurrent ? "text-primary" : "text-muted"}`}>
+                        <div
+                          className={`absolute -left-[11px] flex h-5 w-5 items-center justify-center rounded-full bg-background ${isCompleted ? "text-primary" : isCurrent ? "text-primary" : "text-muted"}`}
+                        >
                           {isCompleted ? (
                             <CheckCircle2 className="h-5 w-5 bg-background" />
                           ) : isCurrent ? (
@@ -305,10 +374,14 @@ function StudentProfile() {
                           )}
                         </div>
                         <div className="flex flex-1 items-center justify-between">
-                          <span className={`text-sm font-medium ${isCurrent ? "text-foreground" : "text-muted-foreground"}`}>
+                          <span
+                            className={`text-sm font-medium ${isCurrent ? "text-foreground" : "text-muted-foreground"}`}
+                          >
                             Semester {semNumber}
                           </span>
-                          <span className={`text-xs font-semibold ${isCompleted ? "text-success" : isCurrent ? "text-primary" : "text-muted-foreground"}`}>
+                          <span
+                            className={`text-xs font-semibold ${isCompleted ? "text-success" : isCurrent ? "text-primary" : "text-muted-foreground"}`}
+                          >
                             {isCompleted ? "Completed" : isCurrent ? "Current" : "Upcoming"}
                           </span>
                         </div>
@@ -324,4 +397,3 @@ function StudentProfile() {
     </div>
   );
 }
-

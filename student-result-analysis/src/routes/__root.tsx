@@ -77,19 +77,36 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "MIT Mysore — Student Result Analysis" },
-      { name: "description", content: "Modern university result analysis system for admins and students." },
+      {
+        name: "description",
+        content: "Modern university result analysis system for admins and students.",
+      },
       { property: "og:title", content: "MIT Mysore — Student Result Analysis" },
       { name: "twitter:title", content: "MIT Mysore — Student Result Analysis" },
-      { property: "og:description", content: "Modern university result analysis system for admins and students." },
-      { name: "twitter:description", content: "Modern university result analysis system for admins and students." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/91119873-5744-4970-b86b-1eb6ecb727f9/id-preview-bc613c25--c24ee6d9-d5db-451b-85b2-3bd24e22ee3d.lovable.app-1782056073385.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/91119873-5744-4970-b86b-1eb6ecb727f9/id-preview-bc613c25--c24ee6d9-d5db-451b-85b2-3bd24e22ee3d.lovable.app-1782056073385.png" },
+      {
+        property: "og:description",
+        content: "Modern university result analysis system for admins and students.",
+      },
+      {
+        name: "twitter:description",
+        content: "Modern university result analysis system for admins and students.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/91119873-5744-4970-b86b-1eb6ecb727f9/id-preview-bc613c25--c24ee6d9-d5db-451b-85b2-3bd24e22ee3d.lovable.app-1782056073385.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/91119873-5744-4970-b86b-1eb6ecb727f9/id-preview-bc613c25--c24ee6d9-d5db-451b-85b2-3bd24e22ee3d.lovable.app-1782056073385.png",
+      },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/images/logo.jpeg" }
+      { rel: "icon", href: "/images/logo.jpeg" },
     ],
   }),
   shellComponent: RootShell,

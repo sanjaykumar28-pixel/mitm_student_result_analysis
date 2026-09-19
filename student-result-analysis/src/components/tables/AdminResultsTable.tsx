@@ -1,4 +1,11 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { AdminResultRow } from "@/services/adminService";
 
@@ -23,7 +30,8 @@ export function AdminResultsTable({ results }: { results: AdminResultRow[] }) {
       <div className="rounded-xl border bg-card p-12 text-center">
         <p className="text-sm font-medium">No results found</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          No stored results match the selected department. Upload a result sheet or choose another department.
+          No stored results match the selected department. Upload a result sheet or choose another
+          department.
         </p>
       </div>
     );
@@ -62,7 +70,10 @@ export function AdminResultsTable({ results }: { results: AdminResultRow[] }) {
               <TableCell className="text-center">{row.credits_earned ?? "—"}</TableCell>
               <TableCell className="text-center">
                 {row.grade ? (
-                  <Badge variant="secondary" className={gradeClass[row.grade] ?? "bg-muted text-muted-foreground"}>
+                  <Badge
+                    variant="secondary"
+                    className={gradeClass[row.grade] ?? "bg-muted text-muted-foreground"}
+                  >
                     {row.grade}
                   </Badge>
                 ) : (

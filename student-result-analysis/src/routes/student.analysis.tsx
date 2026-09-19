@@ -1,4 +1,3 @@
-
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +16,11 @@ export const Route = createFileRoute("/student/analysis")({
 });
 
 function EmptyChart({ message = "No analysis data available." }: { message?: string }) {
-  return <p className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">{message}</p>;
+  return (
+    <p className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
+      {message}
+    </p>
+  );
 }
 
 function Analysis() {
@@ -52,15 +55,20 @@ function Analysis() {
     .filter((s) => s.cgpa != null)
     .map((s) => ({ semester: s.semester, cgpa: s.cgpa as number }));
   const subjectStrength = data?.subject_strength ?? [];
-  const gradeDistribution = (data?.grade_distribution ?? []).map((g) => ({ name: g.grade, value: g.count }));
+  const gradeDistribution = (data?.grade_distribution ?? []).map((g) => ({
+    name: g.grade,
+    value: g.count,
+  }));
   const semesterCompare = (data?.semester_compare ?? [])
     .filter((s) => s.avg != null && s.best != null)
     .map((s) => ({ semester: s.semester, avg: s.avg as number, best: s.best as number }));
 
-
   return (
-    <>
-      <PageHeader title="Performance Analysis" subtitle="Visualize your academic strengths and growth." />
+    <div className="flex flex-col gap-6 pb-8 animate-in fade-in duration-500">
+      <PageHeader
+        title="Performance Analysis"
+        subtitle="Visualize your academic strengths and growth."
+      />
 
       {error ? (
         <Card>
@@ -73,10 +81,16 @@ function Analysis() {
         <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card>
-              <CardHeader><CardTitle className="text-base">SGPA Trend</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">SGPA Trend</CardTitle>
+              </CardHeader>
               <CardContent>
                 {sgpaTrend.length ? (
-                  <LineChartComponent data={sgpaTrend} xKey="semester" lines={[{ key: "sgpa", name: "SGPA" }]} />
+                  <LineChartComponent
+                    data={sgpaTrend}
+                    xKey="semester"
+                    lines={[{ key: "sgpa", name: "SGPA" }]}
+                  />
                 ) : (
                   <EmptyChart />
                 )}
@@ -84,10 +98,16 @@ function Analysis() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">CGPA Growth</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">CGPA Growth</CardTitle>
+              </CardHeader>
               <CardContent>
                 {cgpaTrend.length ? (
-                  <AreaChartComponent data={cgpaTrend} xKey="semester" areas={[{ key: "cgpa", name: "CGPA" }]} />
+                  <AreaChartComponent
+                    data={cgpaTrend}
+                    xKey="semester"
+                    areas={[{ key: "cgpa", name: "CGPA" }]}
+                  />
                 ) : (
                   <EmptyChart />
                 )}
@@ -95,7 +115,9 @@ function Analysis() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">Subject Strength</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Subject Strength</CardTitle>
+              </CardHeader>
               <CardContent>
                 {subjectStrength.length ? (
                   <BarChartComponent
@@ -110,7 +132,9 @@ function Analysis() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">Grade Distribution</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Grade Distribution</CardTitle>
+              </CardHeader>
               <CardContent>
                 {gradeDistribution.length ? (
                   <PieChartComponent data={gradeDistribution} />
@@ -121,7 +145,9 @@ function Analysis() {
             </Card>
 
             <Card className="lg:col-span-2">
-              <CardHeader><CardTitle className="text-base">Semester Comparison — Average vs Best</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Semester Comparison — Average vs Best</CardTitle>
+              </CardHeader>
               <CardContent>
                 {semesterCompare.length ? (
                   <BarChartComponent
@@ -138,10 +164,8 @@ function Analysis() {
               </CardContent>
             </Card>
           </div>
-
-
         </>
       )}
-    </>
+    </div>
   );
 }

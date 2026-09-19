@@ -94,7 +94,9 @@ export interface StudentAnalysisResponse {
 export const studentService = {
   getDashboard: () => api.get<StudentDashboardResponse>("/student/dashboard").then((r) => r.data),
   getResults: (semester?: number) =>
-    api.get<StudentResultsResponse>("/student/results", { params: { semester } }).then((r) => r.data),
+    api
+      .get<StudentResultsResponse>("/student/results", { params: { semester } })
+      .then((r) => r.data),
   getSgpaCgpa: () => api.get<StudentSgpaCgpaResponse>("/student/sgpa-cgpa").then((r) => r.data),
   getAnalysis: () => api.get<StudentAnalysisResponse>("/student/analysis").then((r) => r.data),
 };

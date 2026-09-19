@@ -5,7 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -24,12 +31,19 @@ function UploadExcel() {
   const [progress, setProgress] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<ImportUploadResponse | null>(null);
-  const [rowErrors, setRowErrors] = useState<Array<{ row?: number; usn?: string | null; subject?: string | null; error: string }>>([]);
+  const [rowErrors, setRowErrors] = useState<
+    Array<{ row?: number; usn?: string | null; subject?: string | null; error: string }>
+  >([]);
   const [dragOver, setDragOver] = useState(false);
 
   const selectFile = (f: File) => {
     const name = f.name.toLowerCase();
-    if (!name.endsWith(".xlsx") && !name.endsWith(".xlsm") && !name.endsWith(".xls") && !name.endsWith(".csv")) {
+    if (
+      !name.endsWith(".xlsx") &&
+      !name.endsWith(".xlsm") &&
+      !name.endsWith(".xls") &&
+      !name.endsWith(".csv")
+    ) {
       toast.error("Choose an Excel file (.xlsx).");
       return;
     }
@@ -84,8 +98,11 @@ function UploadExcel() {
   };
 
   return (
-    <>
-      <PageHeader title="Upload Results (Excel)" subtitle="Select the result sheet, then submit to import marks and calculated results." />
+    <div className="flex flex-col gap-6 pb-8 animate-in fade-in duration-500">
+      <PageHeader
+        title="Upload Results (Excel)"
+        subtitle="Select the result sheet, then submit to import marks and calculated results."
+      />
 
       <Card>
         <CardHeader>
@@ -93,7 +110,10 @@ function UploadExcel() {
         </CardHeader>
         <CardContent>
           <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
             className={cn(
@@ -105,7 +125,9 @@ function UploadExcel() {
               <UploadCloud className="h-7 w-7" />
             </div>
             <p className="mt-4 font-medium">Drag & drop your Excel file here</p>
-            <p className="mt-1 text-sm text-muted-foreground">Use the Data Entry sheet (.xlsx) up to 10MB. Import starts only after Submit.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Use the Data Entry sheet (.xlsx) up to 10MB. Import starts only after Submit.
+            </p>
             <input
               ref={inputRef}
               type="file"
@@ -113,7 +135,12 @@ function UploadExcel() {
               hidden
               onChange={(e) => e.target.files?.[0] && selectFile(e.target.files[0])}
             />
-            <Button type="button" className="mt-4" variant="outline" onClick={() => inputRef.current?.click()}>
+            <Button
+              type="button"
+              className="mt-4"
+              variant="outline"
+              onClick={() => inputRef.current?.click()}
+            >
               Choose File
             </Button>
           </div>
@@ -165,7 +192,9 @@ function UploadExcel() {
             <CardTitle className="text-base text-destructive">Import rejected</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="mb-3 text-sm text-muted-foreground">Nothing was saved. Fix these rows and submit again.</p>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Nothing was saved. Fix these rows and submit again.
+            </p>
             <div className="overflow-hidden rounded-xl border">
               <Table>
                 <TableHeader>
@@ -199,9 +228,17 @@ function UploadExcel() {
             <Badge variant="secondary">{result.subjects_upserted} subjects</Badge>
             <Badge variant="secondary">{result.marks_upserted} mark rows</Badge>
             <Badge variant="secondary">{result.results_upserted} results</Badge>
-            <Badge variant="secondary">{result.students.reduce((sum, student) => sum + student.credits_registered, 0)} credits registered</Badge>
-            <Badge variant="secondary">{result.students.reduce((sum, student) => sum + student.credits_earned, 0)} credits earned</Badge>
-            <Badge variant="outline">{result.department} · Sem {result.semester}</Badge>
+            <Badge variant="secondary">
+              {result.students.reduce((sum, student) => sum + student.credits_registered, 0)}{" "}
+              credits registered
+            </Badge>
+            <Badge variant="secondary">
+              {result.students.reduce((sum, student) => sum + student.credits_earned, 0)} credits
+              earned
+            </Badge>
+            <Badge variant="outline">
+              {result.department} · Sem {result.semester}
+            </Badge>
             {result.academic_year && <Badge variant="outline">{result.academic_year}</Badge>}
           </div>
           <h2 className="text-sm font-semibold text-muted-foreground">
@@ -227,7 +264,9 @@ function UploadExcel() {
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell className="text-right">{s.grand_total}</TableCell>
                     <TableCell className="text-right">{s.average_marks}</TableCell>
-                    <TableCell className="text-right">{s.credits_earned}/{s.credits_registered}</TableCell>
+                    <TableCell className="text-right">
+                      {s.credits_earned}/{s.credits_registered}
+                    </TableCell>
                     <TableCell className="text-right">{s.sgpa.toFixed(2)}</TableCell>
                     <TableCell className="text-right">{s.cgpa.toFixed(2)}</TableCell>
                   </TableRow>
@@ -237,6 +276,6 @@ function UploadExcel() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

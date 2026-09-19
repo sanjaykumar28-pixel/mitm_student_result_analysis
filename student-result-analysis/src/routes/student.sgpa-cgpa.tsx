@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { gradePoint, type Grade } from "@/data/mockData";
 import { studentService } from "@/services/studentService";
@@ -141,7 +149,7 @@ function SgpaCgpa() {
   const predictedOverallGrade = calculateGrade(predictedCgpa * 10);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-8">
       <PageHeader
         title="Result Prediction Calculator"
         subtitle="Enter your internal and predicted external marks to estimate your SGPA and CGPA."
@@ -163,7 +171,8 @@ function SgpaCgpa() {
                 <div>
                   <CardTitle className="text-lg">Current Semester Result Prediction</CardTitle>
                   <CardDescription>
-                    Enter your internal marks (CIE) and predicted external marks (SEE) to estimate your final result.
+                    Enter your internal marks (CIE) and predicted external marks (SEE) to estimate
+                    your final result.
                   </CardDescription>
                 </div>
                 <Badge className="bg-primary/10 text-primary px-4 py-1 text-lg font-bold">
@@ -173,91 +182,164 @@ function SgpaCgpa() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-md border overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b bg-muted/50 text-muted-foreground">
-                    <tr>
-                      <th className="h-10 px-4 text-left font-medium align-middle">S.No.</th>
-                      <th className="h-10 px-4 text-left font-medium align-middle">Subject Code</th>
-                      <th className="h-10 px-4 text-left font-medium align-middle min-w-[200px]">Subject Name</th>
-                      <th className="h-10 px-4 text-left font-medium align-middle">Credits</th>
-                      <th className="h-10 px-4 text-left font-medium align-middle">Internal (CIE)</th>
-                      <th className="h-10 px-4 text-left font-medium align-middle">Predicted External (SEE)</th>
-                      <th className="h-10 px-4 text-left font-medium align-middle">Total</th>
-                      <th className="h-10 px-4 text-left font-medium align-middle">Grade Point</th>
-                      <th className="h-10 px-4 text-left font-medium align-middle">Grade</th>
-                      <th className="h-10 px-4 text-left font-medium align-middle"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">S.No.</TableHead>
+                      <TableHead>Subject Code</TableHead>
+                      <TableHead className="min-w-[200px]">Subject Name</TableHead>
+                      <TableHead>Credits</TableHead>
+                      <TableHead>Internal (CIE)</TableHead>
+                      <TableHead>Predicted External (SEE)</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Grade Point</TableHead>
+                      <TableHead>Grade</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {loaded && computedRows.length === 0 ? (
-                      <tr>
-                        <td colSpan={10} className="py-6 text-center text-sm text-muted-foreground">
+                      <TableRow>
+                        <TableCell colSpan={10} className="py-6 text-center text-muted-foreground">
                           No subjects available. Add a subject to start predicting.
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ) : (
                       computedRows.map((r, i) => (
-                        <tr key={r.id} className="border-b last:border-0 transition-colors hover:bg-muted/50">
-                          <td className="p-4 align-middle">{i + 1}</td>
-                          <td className="p-2 align-middle">
+                        <TableRow key={r.id}>
+                          <TableCell>{i + 1}</TableCell>
+                          <TableCell>
                             <Input
                               value={r.code}
                               className="h-8 min-w-[80px]"
-                              onChange={(e) => setRows((rs) => rs.map((x, j) => j === i ? { ...x, code: e.target.value } : x))}
+                              onChange={(e) =>
+                                setRows((rs) =>
+                                  rs.map((x, j) => (j === i ? { ...x, code: e.target.value } : x)),
+                                )
+                              }
                             />
-                          </td>
-                          <td className="p-2 align-middle">
+                          </TableCell>
+                          <TableCell>
                             <Input
                               value={r.name}
-                              className="h-8"
-                              onChange={(e) => setRows((rs) => rs.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                              className="h-8 min-w-[200px]"
+                              onChange={(e) =>
+                                setRows((rs) =>
+                                  rs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                                )
+                              }
                             />
-                          </td>
-                          <td className="p-2 align-middle">
+                          </TableCell>
+                          <TableCell>
                             <Input
-                              type="number" min={1} max={6}
+                              type="number"
+                              min={1}
+                              max={6}
                               className="h-8 w-[70px]"
                               value={r.credits}
-                              onChange={(e) => setRows((rs) => rs.map((x, j) => j === i ? { ...x, credits: Number(e.target.value) } : x))}
+                              onChange={(e) =>
+                                setRows((rs) =>
+                                  rs.map((x, j) =>
+                                    j === i ? { ...x, credits: Number(e.target.value) } : x,
+                                  ),
+                                )
+                              }
                             />
-                          </td>
-                          <td className="p-2 align-middle">
+                          </TableCell>
+                          <TableCell>
                             <Input
-                              type="number" min={0} max={MAX_CIE}
+                              type="number"
+                              min={0}
+                              max={MAX_CIE}
                               className="h-8 w-[80px]"
                               value={r.internal || ""}
-                              onChange={(e) => setRows((rs) => rs.map((x, j) => j === i ? { ...x, internal: Math.min(MAX_CIE, Math.max(0, Number(e.target.value))) } : x))}
+                              onChange={(e) =>
+                                setRows((rs) =>
+                                  rs.map((x, j) =>
+                                    j === i
+                                      ? {
+                                          ...x,
+                                          internal: Math.min(
+                                            MAX_CIE,
+                                            Math.max(0, Number(e.target.value)),
+                                          ),
+                                        }
+                                      : x,
+                                  ),
+                                )
+                              }
                             />
-                          </td>
-                          <td className="p-2 align-middle">
+                          </TableCell>
+                          <TableCell>
                             <Input
-                              type="number" min={0} max={MAX_SEE}
+                              type="number"
+                              min={0}
+                              max={MAX_SEE}
                               className="h-8 w-[80px]"
                               value={r.external || ""}
-                              onChange={(e) => setRows((rs) => rs.map((x, j) => j === i ? { ...x, external: Math.min(MAX_SEE, Math.max(0, Number(e.target.value))) } : x))}
+                              onChange={(e) =>
+                                setRows((rs) =>
+                                  rs.map((x, j) =>
+                                    j === i
+                                      ? {
+                                          ...x,
+                                          external: Math.min(
+                                            MAX_SEE,
+                                            Math.max(0, Number(e.target.value)),
+                                          ),
+                                        }
+                                      : x,
+                                  ),
+                                )
+                              }
                             />
-                          </td>
-                          <td className="p-4 align-middle font-medium">{r.total}</td>
-                          <td className="p-4 align-middle">{r.gp}</td>
-                          <td className="p-4 align-middle">
-                            <Badge variant={r.grade === "F" ? "destructive" : "outline"} className={r.grade !== "F" ? "bg-primary/5 border-primary/20" : ""}>
+                          </TableCell>
+                          <TableCell className="font-medium text-foreground">{r.total}</TableCell>
+                          <TableCell className="text-muted-foreground tabular-nums">
+                            {r.gp}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={r.grade === "F" ? "destructive" : "outline"}
+                              className={r.grade !== "F" ? "bg-primary/5 border-primary/20" : ""}
+                            >
                               {r.grade}
                             </Badge>
-                          </td>
-                          <td className="p-2 align-middle">
-                            <Button size="icon" variant="ghost" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
+                            >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))
                     )}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
 
               <div className="flex items-center justify-between">
-                <Button variant="outline" size="sm" onClick={() => setRows((rs) => [...rs, { id: Date.now(), code: `SUB${rs.length + 1}`, name: `Subject ${rs.length + 1}`, credits: 3, internal: 0, external: 0 }])}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setRows((rs) => [
+                      ...rs,
+                      {
+                        id: Date.now(),
+                        code: `SUB${rs.length + 1}`,
+                        name: `Subject ${rs.length + 1}`,
+                        credits: 3,
+                        internal: 0,
+                        external: 0,
+                      },
+                    ])
+                  }
+                >
                   <Plus className="mr-2 h-4 w-4" /> Add Subject
                 </Button>
 
@@ -279,58 +361,92 @@ function SgpaCgpa() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead className="border-b bg-muted/50 text-muted-foreground">
-                      <tr>
-                        <th className="h-10 px-4 text-left font-medium">Semester</th>
-                        <th className="h-10 px-4 text-left font-medium">Credits Earned</th>
-                        <th className="h-10 px-4 text-left font-medium">SGPA</th>
-                        <th className="h-10 px-4 text-left font-medium"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Semester</TableHead>
+                        <TableHead>Credits Earned</TableHead>
+                        <TableHead>SGPA</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {loaded && sems.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
                             No previous semesters added.
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ) : (
                         sems.map((s, i) => (
-                          <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                            <td className="p-2 align-middle">
-                              <div className="flex items-center rounded-md border bg-muted/30 px-3 h-8 w-[120px] text-sm">
+                          <TableRow key={s.id}>
+                            <TableCell>
+                              <div className="flex items-center rounded-md border bg-muted/30 px-3 h-8 w-[120px] text-sm font-medium">
                                 Semester {s.semester}
                               </div>
-                            </td>
-                            <td className="p-2 align-middle">
+                            </TableCell>
+                            <TableCell>
                               <Input
-                                type="number" min={1}
+                                type="number"
+                                min={1}
                                 className="h-8 w-[100px]"
                                 value={s.credits || ""}
-                                onChange={(e) => setSems((ss) => ss.map((x, j) => j === i ? { ...x, credits: Number(e.target.value) } : x))}
+                                onChange={(e) =>
+                                  setSems((ss) =>
+                                    ss.map((x, j) =>
+                                      j === i ? { ...x, credits: Number(e.target.value) } : x,
+                                    ),
+                                  )
+                                }
                               />
-                            </td>
-                            <td className="p-2 align-middle">
+                            </TableCell>
+                            <TableCell>
                               <Input
-                                type="number" step="0.01" min={0} max={10}
+                                type="number"
+                                step="0.01"
+                                min={0}
+                                max={10}
                                 className="h-8 w-[100px]"
                                 value={s.sgpa || ""}
-                                onChange={(e) => setSems((ss) => ss.map((x, j) => j === i ? { ...x, sgpa: Math.min(10, Math.max(0, Number(e.target.value))) } : x))}
+                                onChange={(e) =>
+                                  setSems((ss) =>
+                                    ss.map((x, j) =>
+                                      j === i
+                                        ? {
+                                            ...x,
+                                            sgpa: Math.min(10, Math.max(0, Number(e.target.value))),
+                                          }
+                                        : x,
+                                    ),
+                                  )
+                                }
                               />
-                            </td>
-                            <td className="p-2 align-middle text-right">
-                              <Button size="icon" variant="ghost" onClick={() => setSems((ss) => ss.filter((_, j) => j !== i))}>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setSems((ss) => ss.filter((_, j) => j !== i))}
+                              >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setSems((ss) => [...ss, { id: Date.now(), semester: ss.length + 1, sgpa: 0, credits: 20 }])}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setSems((ss) => [
+                      ...ss,
+                      { id: Date.now(), semester: ss.length + 1, sgpa: 0, credits: 20 },
+                    ])
+                  }
+                >
                   <Plus className="mr-2 h-4 w-4" /> Add Semester
                 </Button>
               </CardContent>
@@ -372,7 +488,10 @@ function SgpaCgpa() {
                       <TrendingUp className="h-4 w-4" /> Overall Grade
                     </div>
                     <div className="text-2xl font-bold">
-                      <Badge variant={predictedOverallGrade === "F" ? "destructive" : "default"} className="text-base px-3">
+                      <Badge
+                        variant={predictedOverallGrade === "F" ? "destructive" : "default"}
+                        className="text-base px-3"
+                      >
                         {predictedOverallGrade}
                       </Badge>
                     </div>
@@ -382,9 +501,7 @@ function SgpaCgpa() {
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
                       <BookOpen className="h-4 w-4" /> Total Credits
                     </div>
-                    <div className="text-2xl font-bold text-foreground">
-                      {totalCreditsEarned}
-                    </div>
+                    <div className="text-2xl font-bold text-foreground">{totalCreditsEarned}</div>
                   </div>
                 </div>
               </CardContent>

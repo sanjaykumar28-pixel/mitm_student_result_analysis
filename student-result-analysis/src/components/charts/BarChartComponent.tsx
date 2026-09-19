@@ -1,13 +1,27 @@
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 
-interface Props {
-  data: Array<Record<string, string | number>>;
+interface BarChartProps<T extends object> {
+  data: T[];
   xKey: string;
   bars: Array<{ key: string; color?: string; name?: string }>;
   height?: number;
 }
 
-export function BarChartComponent({ data, xKey, bars, height = 280 }: Props) {
+export function BarChartComponent<T extends object>({
+  data,
+  xKey,
+  bars,
+  height = 280,
+}: BarChartProps<T>) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 12, left: -10, bottom: 0 }}>

@@ -10,7 +10,13 @@ interface PerformanceCardProps {
   footer?: ReactNode;
 }
 
-export function PerformanceCard({ title, value, max = 10, description, footer }: PerformanceCardProps) {
+export function PerformanceCard({
+  title,
+  value,
+  max = 10,
+  description,
+  footer,
+}: PerformanceCardProps) {
   const pct = value == null ? 0 : Math.min(100, (value / max) * 100);
   return (
     <Card>
@@ -19,7 +25,9 @@ export function PerformanceCard({ title, value, max = 10, description, footer }:
       </CardHeader>
       <CardContent>
         <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-semibold tracking-tight">{value == null ? "—" : value.toFixed(2)}</span>
+          <span className="text-3xl font-semibold tracking-tight">
+            {value == null ? "—" : value.toFixed(2)}
+          </span>
           <span className="text-sm text-muted-foreground">/ {max.toFixed(1)}</span>
         </div>
         <Progress value={pct} className="mt-3 h-2" />

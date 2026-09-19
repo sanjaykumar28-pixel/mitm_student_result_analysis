@@ -1,414 +1,677 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Users, BookOpen, TrendingUp, Award, Sparkles } from "lucide-react";
+import {
+  Users,
+  BookOpen,
+  TrendingUp,
+  Award,
+  Trophy,
+  UserPlus,
+  FileSpreadsheet,
+  BarChart2,
+  Eye,
+  ChevronRight,
+  Medal,
+  Activity,
+} from "lucide-react";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip as RechartsTooltip,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatsCard } from "@/components/cards/StatsCard";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { Badge } from "@/components/ui/badge";
 import { BarChartComponent } from "@/components/charts/BarChartComponent";
-import { LineChartComponent } from "@/components/charts/LineChartComponent";
-import { PieChartComponent } from "@/components/charts/PieChartComponent";
-import { TopperTable, type TopperEntry } from "@/components/tables/TopperTable";
-import { adminService, type AdminResultRow } from "@/services/adminService";
+import { adminService, type AdminResultRow, type AdminTopperRow } from "@/services/adminService";
 
 export const Route = createFileRoute("/admin/dashboard")({
   component: AdminDashboard,
 });
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+interface SemPerf {
+  semester: string;
+  passed: number;
+  failed: number;
+}
+
+
+
+interface TopPerformerEntry {
+  rank: number;
+  name: string;
+  usn: string;
+  cgpa: number;
+}
+
+// ---------------------------------------------------------------------------
+// Donut chart colours
+// ---------------------------------------------------------------------------
+const DONUT_COLORS = ["#22c55e", "#ef4444"];
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 function AdminDashboard() {
-  const [stats, setStats] = useState({
-    totalStudents: 0,
-    totalSubjects: 0,
-    passPercentage: 0,
-    averageCGPA: 0,
-    topPerformer: "No data",
-    topPerformerCgpa: 0,
-  });
+  // ---- raw state -----------------------------------------------------------
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [totalSubjects, setTotalSubjects] = useState(0);
+  const [passPercentage, setPassPercentage] = useState(0);
+  const [averageCGPA, setAverageCGPA] = useState(0);
+  const [topPerformerName, setTopPerformerName] = useState("—");
+  const [topPerformerCgpa, setTopPerformerCgpa] = useState<number | null>(null);
 
-  const [charts, setCharts] = useState({
-    genderPerformance: [] as Array<{ gender: string; avgCgpa: number }>,
-    semesterPass: [] as Array<{ semester: string; pass: number }>,
-    gradeDistribution: [] as Array<{ name: string; value: number }>,
-    performanceTrend: [] as Array<{ semester: string; cgpa: number }>,
-    toppers: [] as TopperEntry[],
-  });
+  const [semesterPerf, setSemesterPerf] = useState<SemPerf[]>([]);
+  const [totalPassed, setTotalPassed] = useState(0);
+  const [totalFailed, setTotalFailed] = useState(0);
 
-  const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [topPerformers, setTopPerformers] = useState<TopPerformerEntry[]>([]);
 
   const [loading, setLoading] = useState(true);
 
+  // ---- data fetch ----------------------------------------------------------
   useEffect(() => {
     let mounted = true;
 
-    async function loadStats() {
+    async function loadAll() {
       try {
-        const [students, subjects, resultsData] = await Promise.all([
+        const [students, subjects, resultsData, toppersData] = await Promise.all([
           adminService.getStudents().catch(() => []),
           adminService.getSubjects().catch(() => []),
-          adminService.getResults().catch(() => ({ total: 0, results: [], department: null, semester: null, departments: [] })),
+          adminService
+            .getResults()
+            .catch(() => ({ total: 0, results: [], department: null, semester: null, departments: [] })),
+          adminService.getToppers().catch(() => ({ toppers: [], department_toppers: [] })),
         ]);
 
         if (!mounted) return;
 
-        const totalStudents = students.length;
-        const totalSubjects = subjects.length;
+        const results: AdminResultRow[] = resultsData.results ?? [];
 
-        const results = resultsData.results || [];
-        
-        // Ensure one result per student (use the highest semester or highest CGPA)
-        const uniqueResults = new Map<string, AdminResultRow>();
+        // --- unique-per-student (highest semester, then highest CGPA) -----
+        const uniqueMap = new Map<string, AdminResultRow>();
         for (const res of results) {
-          const existing = uniqueResults.get(res.usn);
-          if (!existing) {
-            uniqueResults.set(res.usn, res);
-          } else {
-            if (res.semester > existing.semester) {
-              uniqueResults.set(res.usn, res);
-            } else if (res.semester === existing.semester && (res.cgpa || 0) > (existing.cgpa || 0)) {
-              uniqueResults.set(res.usn, res);
-            }
+          const ex = uniqueMap.get(res.usn);
+          if (!ex) {
+            uniqueMap.set(res.usn, res);
+          } else if (res.semester > ex.semester) {
+            uniqueMap.set(res.usn, res);
+          } else if (res.semester === ex.semester && (res.cgpa ?? 0) > (ex.cgpa ?? 0)) {
+            uniqueMap.set(res.usn, res);
           }
         }
+        const uniqueResults = Array.from(uniqueMap.values());
 
-        const evaluatedStudents = Array.from(uniqueResults.values());
-        
-        let passedCount = 0;
-        let validCgpaSum = 0;
-        let validCgpaCount = 0;
-        let topPerformer = "No data";
+        // --- stats cards ---------------------------------------------------
+        let passed = 0;
+        let failed = 0;
+        let cgpaSum = 0;
+        let cgpaCount = 0;
         let topCgpa = -1;
+        let topName = "—";
 
-        for (const res of evaluatedStudents) {
-          const grade = res.grade?.toUpperCase() || "";
+        for (const res of uniqueResults) {
+          const grade = (res.grade ?? "").toUpperCase();
           if (grade !== "F" && grade !== "FAIL" && grade !== "ABSENT") {
-            passedCount++;
+            passed++;
+          } else {
+            failed++;
           }
-
-          if (res.cgpa !== null && res.cgpa !== undefined && res.cgpa > 0) {
-            validCgpaSum += res.cgpa;
-            validCgpaCount++;
+          if (res.cgpa != null && res.cgpa > 0) {
+            cgpaSum += res.cgpa;
+            cgpaCount++;
             if (res.cgpa > topCgpa) {
               topCgpa = res.cgpa;
-              topPerformer = res.student_name;
+              topName = res.student_name;
             }
           }
         }
 
-        const passPercentage = evaluatedStudents.length > 0 
-          ? (passedCount / evaluatedStudents.length) * 100 
-          : 0;
-          
-        const averageCGPA = validCgpaCount > 0 
-          ? validCgpaSum / validCgpaCount 
-          : 0;
+        const total = uniqueResults.length;
+        const passedPct = total > 0 ? (passed / total) * 100 : 0;
+        const avgCgpa = cgpaCount > 0 ? cgpaSum / cgpaCount : 0;
 
-        setStats({
-          totalStudents,
-          totalSubjects,
-          passPercentage,
-          averageCGPA,
-          topPerformer,
-          topPerformerCgpa: topCgpa > 0 ? topCgpa : 0,
-        });
+        setTotalStudents(students.length);
+        setTotalSubjects(subjects.length);
+        setPassPercentage(passedPct);
+        setAverageCGPA(avgCgpa);
+        setTopPerformerName(topName);
+        setTopPerformerCgpa(topCgpa > 0 ? topCgpa : null);
+        setTotalPassed(passed);
+        setTotalFailed(failed);
 
-        // Calculate chart data
-        // 1. Gender Performance
-        const studentGenderMap = new Map();
-        students.forEach(s => studentGenderMap.set(s.usn, s.gender));
+        // --- semester performance (all results, not de-duped) ---------------
+        const semMap = new Map<number, { passed: number; failed: number }>();
+        for (const res of results) {
+          if (res.semester == null) continue;
+          if (!semMap.has(res.semester)) semMap.set(res.semester, { passed: 0, failed: 0 });
+          const s = semMap.get(res.semester)!;
+          const g = (res.grade ?? "").toUpperCase();
+          if (g !== "F" && g !== "FAIL" && g !== "ABSENT") {
+            s.passed++;
+          } else {
+            s.failed++;
+          }
+        }
+        const semPerf: SemPerf[] = Array.from(semMap.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([sem, s]) => ({ semester: `Sem ${sem}`, passed: s.passed, failed: s.failed }));
+        setSemesterPerf(semPerf);
 
-        const maleCgpas: number[] = [];
-        const femaleCgpas: number[] = [];
-
-        evaluatedStudents.forEach(res => {
-           const gender = studentGenderMap.get(res.usn);
-           if (res.cgpa && res.cgpa > 0) {
-               if (gender === 'Male') maleCgpas.push(res.cgpa);
-               else if (gender === 'Female') femaleCgpas.push(res.cgpa);
-           }
-        });
-        
-        const genderPerformance = [
-          { gender: "Male", avgCgpa: maleCgpas.length ? (maleCgpas.reduce((a,b)=>a+b,0)/maleCgpas.length) : 0 },
-          { gender: "Female", avgCgpa: femaleCgpas.length ? (femaleCgpas.reduce((a,b)=>a+b,0)/femaleCgpas.length) : 0 },
-        ];
-
-        // 2. Semester Pass Percentage
-        const semesterStats = new Map();
-        results.forEach(res => {
-            if (!semesterStats.has(res.semester)) {
-                semesterStats.set(res.semester, { total: 0, passed: 0 });
-            }
-            const stat = semesterStats.get(res.semester);
-            stat.total++;
-            const grade = res.grade?.toUpperCase() || "";
-            if (grade !== "F" && grade !== "FAIL" && grade !== "ABSENT") {
-                stat.passed++;
-            }
-        });
-        const semesterPass = Array.from(semesterStats.entries())
-          .sort((a,b) => a[0] - b[0])
-          .map(([sem, stat]) => ({
-            semester: `Sem ${sem}`,
-            pass: stat.total > 0 ? (stat.passed / stat.total) * 100 : 0
+        // --- top performers (top 5, all semesters) -------------------------
+        const topList: TopPerformerEntry[] = (toppersData.toppers ?? [])
+          .filter((t: AdminTopperRow) => t.cgpa > 0)
+          .sort((a: AdminTopperRow, b: AdminTopperRow) => b.cgpa - a.cgpa)
+          .slice(0, 10)
+          .map((t: AdminTopperRow, i: number) => ({
+            rank: i + 1,
+            name: t.name,
+            usn: t.usn,
+            cgpa: t.cgpa,
           }));
+        setTopPerformers(topList);
 
-        // 3. Grade Distribution
-        const gradeCounts: Record<string, number> = {};
-        results.forEach(res => {
-            const grade = res.grade || "N/A";
-            gradeCounts[grade] = (gradeCounts[grade] || 0) + 1;
-        });
-        const gradeDistribution = Object.entries(gradeCounts).map(([grade, count]) => ({
-            name: grade, value: count
-        }));
-
-        // 4. Performance Trend (Average CGPA per semester)
-        const semCgpaStats = new Map();
-        results.forEach(res => {
-            if (res.cgpa && res.cgpa > 0) {
-                if (!semCgpaStats.has(res.semester)) {
-                    semCgpaStats.set(res.semester, { sum: 0, count: 0 });
-                }
-                const stat = semCgpaStats.get(res.semester);
-                stat.sum += res.cgpa;
-                stat.count++;
-            }
-        });
-        const performanceTrend = Array.from(semCgpaStats.entries())
-          .sort((a,b) => a[0] - b[0])
-          .map(([sem, stat]) => ({
-            semester: `Sem ${sem}`,
-            cgpa: stat.count > 0 ? stat.sum / stat.count : 0
-          }));
-
-        // 5. Toppers — include all candidates (not just top 5) so year filter can work later
-        const allTopperCandidates: TopperEntry[] = evaluatedStudents
-          .filter(res => res.cgpa && res.cgpa > 0)
-          .sort((a, b) => (b.cgpa || 0) - (a.cgpa || 0))
-          .map(res => ({
-              id: res.usn,
-              name: res.student_name,
-              department: res.department,
-              semester: res.semester,
-              cgpa: res.cgpa as number,
-              academic_year: res.academic_year ?? null,
-          }));
-
-        setCharts({
-          genderPerformance,
-          semesterPass,
-          gradeDistribution,
-          performanceTrend,
-          toppers: allTopperCandidates,
-        });
 
       } catch (err) {
-        console.error("Failed to load dashboard stats", err);
+        console.error("Dashboard load error", err);
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
-    loadStats();
-    return () => { mounted = false; };
+    loadAll();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  return (
-    <>
-      <PageHeader
-        title="Admin Dashboard"
-        subtitle="Overview of institution-wide academic performance."
-      />
+  // ---- derived -------------------------------------------------------------
+  const donutData = useMemo(
+    () => [
+      { name: "Passed", value: totalPassed },
+      { name: "Failed", value: totalFailed },
+    ],
+    [totalPassed, totalFailed],
+  );
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatsCard 
-          title="Total Students" 
-          value={loading ? "..." : stats.totalStudents.toLocaleString()} 
-          icon={Users} 
-          accent="primary" 
+  const donutTotal = totalPassed + totalFailed;
+  const donutPassPct = donutTotal > 0 ? ((totalPassed / donutTotal) * 100).toFixed(2) : "0.00";
+
+
+
+  const now = new Date().toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  // =========================================================================
+  // RENDER
+  // =========================================================================
+  return (
+    <div className="flex flex-col gap-5 pb-8">
+      {/* ================================================================
+          HERO BANNER
+      ================================================================ */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1e3a6e] via-[#1a4fa8] to-[#2563eb] shadow-lg min-h-[140px]">
+        {/* College image — right side overlay */}
+        <div className="absolute inset-y-0 right-0 w-[45%] opacity-30 [mask-image:linear-gradient(to_left,white_30%,transparent)]">
+          <img
+            src="/images/college.jpeg"
+            alt="MIT Mysore Campus"
+            className="h-full w-full object-cover object-center"
+          />
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10 flex items-stretch justify-between gap-4 px-8 py-7">
+          {/* Left text */}
+          <div className="flex flex-col justify-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200">
+              WELCOME BACK,
+            </p>
+            <h1 className="mt-1 text-3xl font-bold text-white tracking-tight">
+              Administrator 👋
+            </h1>
+            <p className="mt-2 text-sm text-blue-100 max-w-sm leading-relaxed">
+              Here's what's happening with your institute today.
+            </p>
+          </div>
+
+          {/* Right — motivational quote */}
+          <div className="hidden lg:flex flex-col justify-center items-end max-w-xs text-right pr-4">
+            <p className="text-sm italic text-blue-100 leading-relaxed">
+              "Education is the most powerful weapon which you can use to change the world."
+            </p>
+            <p className="mt-2 text-xs font-semibold text-blue-300">— Nelson Mandela</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ================================================================
+          FIVE STATS CARDS
+      ================================================================ */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {/* 1. Total Students */}
+        <StatCard
+          icon={<Users className="h-5 w-5 text-blue-600" />}
+          iconBg="bg-blue-100"
+          label="Total Students"
+          value={loading ? "…" : totalStudents.toLocaleString()}
+          sub="Registered Students"
+          loading={loading}
         />
-        <StatsCard 
-          title="Total Subjects" 
-          value={loading ? "..." : stats.totalSubjects.toLocaleString()} 
-          icon={BookOpen} 
-          accent="primary" 
+        {/* 2. Total Subjects */}
+        <StatCard
+          icon={<BookOpen className="h-5 w-5 text-emerald-600" />}
+          iconBg="bg-emerald-100"
+          label="Total Subjects"
+          value={loading ? "…" : totalSubjects.toLocaleString()}
+          sub="Available Subjects"
+          loading={loading}
         />
-        <StatsCard 
-          title="Pass Percentage" 
-          value={loading ? "..." : `${stats.passPercentage.toFixed(2)}%`} 
-          icon={TrendingUp} 
-          accent="success" 
+        {/* 3. Pass Percentage */}
+        <StatCard
+          icon={
+            <span className="text-purple-600 font-bold text-base leading-none">%</span>
+          }
+          iconBg="bg-purple-100"
+          label="Pass Percentage"
+          value={loading ? "…" : `${passPercentage.toFixed(2)}%`}
+          sub="Overall Pass Percentage"
+          loading={loading}
         />
-        <StatsCard 
-          title="Average CGPA" 
-          value={loading ? "..." : stats.averageCGPA.toFixed(2)} 
-          icon={Award} 
-          accent="warning" 
+        {/* 4. Average CGPA */}
+        <StatCard
+          icon={<Award className="h-5 w-5 text-amber-500" />}
+          iconBg="bg-amber-100"
+          label="Average CGPA"
+          value={loading ? "…" : averageCGPA.toFixed(2)}
+          sub="Overall Average CGPA"
+          loading={loading}
         />
-        <StatsCard 
-          title="Top Performer" 
-          value={loading ? "..." : stats.topPerformer} 
-          icon={Sparkles} 
-          accent="primary" 
-          trend={stats.topPerformer !== "No data" && !loading ? `CGPA: ${stats.topPerformerCgpa.toFixed(2)}` : undefined}
-          trendUp={true}
+        {/* 5. Top Performer */}
+        <StatCard
+          icon={<Trophy className="h-5 w-5 text-rose-500" />}
+          iconBg="bg-rose-100"
+          label="Top Performer"
+          value={loading ? "…" : topPerformerName}
+          sub={
+            topPerformerCgpa != null && !loading
+              ? `CGPA : ${topPerformerCgpa.toFixed(2)}`
+              : "No result data"
+          }
+          valueSmall
+          loading={loading}
         />
       </div>
 
-      {!loading && (
-        <>
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Performance by Gender</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {charts.genderPerformance.length > 0 ? (
-                  <BarChartComponent
-                    data={charts.genderPerformance}
-                    xKey="gender"
-                    bars={[
-                      { key: "avgCgpa", name: "Average CGPA" },
-                    ]}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground p-4 text-center">No analysis data available</p>
-                )}
-              </CardContent>
-            </Card>
+      {/* ================================================================
+          ANALYTICS ROW  (Performance Overview | Result Summary | Quick Actions)
+      ================================================================ */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        {/* ---- Overall Performance Overview (left, 5 cols) --------------- */}
+        <Card className="lg:col-span-5 border-border/60 shadow-sm">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                <BarChart2 className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-bold text-foreground">
+                  Overall Performance Overview
+                </CardTitle>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Pass vs Fail ratio across all semesters
+                </p>
+              </div>
+              <div className="ml-auto flex items-center gap-3 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  Pass
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+                  Fail
+                </span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="px-2 pb-4">
+            {loading ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                Loading…
+              </div>
+            ) : semesterPerf.length === 0 ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                No performance data available
+              </div>
+            ) : (
+              <BarChartComponent
+                data={semesterPerf}
+                xKey="semester"
+                bars={[
+                  { key: "passed", name: "Passed", color: "#22c55e" },
+                  { key: "failed", name: "Failed", color: "#ef4444" },
+                ]}
+                height={210}
+              />
+            )}
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Semester-wise Pass Percentage</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {charts.semesterPass.length > 0 ? (
-                  <LineChartComponent
-                    data={charts.semesterPass}
-                    xKey="semester"
-                    lines={[{ key: "pass", name: "Pass %" }]}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground p-4 text-center">No analysis data available</p>
-                )}
-              </CardContent>
-            </Card>
+        {/* ---- Student Result Summary (center, 4 cols) ------------------- */}
+        <Card className="lg:col-span-4 border-border/60 shadow-sm">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100">
+                <Activity className="h-4 w-4 text-violet-600" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-bold text-foreground">
+                  Student Result Summary
+                </CardTitle>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Based on all semesters
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {loading ? (
+              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                Loading…
+              </div>
+            ) : (
+              <>
+                {/* Donut chart with center label */}
+                <div className="relative">
+                  <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                      <Pie
+                        data={donutData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={52}
+                        outerRadius={78}
+                        paddingAngle={2}
+                        stroke="none"
+                      >
+                        {donutData.map((_, i) => (
+                          <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        formatter={(v: number) => [v, ""]}
+                        contentStyle={{
+                          backgroundColor: "var(--color-popover)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Centre text */}
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <p className="text-lg font-bold text-foreground leading-none">
+                      {donutPassPct}%
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Pass Percentage</p>
+                  </div>
+                </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Grade Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {charts.gradeDistribution.length > 0 ? (
-                  <PieChartComponent
-                    data={charts.gradeDistribution}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground p-4 text-center">No analysis data available</p>
-                )}
-              </CardContent>
-            </Card>
+                {/* Legend rows */}
+                <div className="mt-1 flex justify-center gap-6 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-muted-foreground">
+                      Passed
+                    </span>
+                    <span className="font-semibold text-foreground ml-1">{totalPassed}</span>
+                    <span className="text-muted-foreground ml-0.5">
+                      · {donutTotal > 0 ? ((totalPassed / donutTotal) * 100).toFixed(2) : "0"}%
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-red-500 shrink-0" />
+                    <span className="text-muted-foreground">Failed</span>
+                    <span className="font-semibold text-foreground ml-1">{totalFailed}</span>
+                    <span className="text-muted-foreground ml-0.5">
+                      · {donutTotal > 0 ? ((totalFailed / donutTotal) * 100).toFixed(2) : "0"}%
+                    </span>
+                  </div>
+                </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Average CGPA Trend</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {charts.performanceTrend.length > 0 ? (
-                  <LineChartComponent
-                    data={charts.performanceTrend}
-                    xKey="semester"
-                    lines={[{ key: "cgpa", name: "Avg CGPA" }]}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground p-4 text-center">No analysis data available</p>
-                )}
-              </CardContent>
-            </Card>
+                {/* CGPA average row */}
+                <div className="mt-4 flex items-center justify-between rounded-xl bg-muted/50 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Award className="h-4 w-4 text-amber-500" />
+                    <span className="text-xs text-muted-foreground">CGPA (Average)</span>
+                  </div>
+                  <span className="text-lg font-bold text-foreground">
+                    {averageCGPA.toFixed(2)}
+                  </span>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ---- Quick Actions (right, 3 cols) ----------------------------- */}
+        <Card className="lg:col-span-3 border-border/60 shadow-sm">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
+                <TrendingUp className="h-4 w-4 text-amber-600" />
+              </div>
+              <CardTitle className="text-sm font-bold text-foreground">Quick Actions</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 flex flex-col gap-2">
+            <QuickAction
+              href="/admin/add-student"
+              icon={<UserPlus className="h-4 w-4 text-blue-600" />}
+              iconBg="bg-blue-100"
+              label="Add Student"
+            />
+            <QuickAction
+              href="/admin/add-subject"
+              icon={<BookOpen className="h-4 w-4 text-emerald-600" />}
+              iconBg="bg-emerald-100"
+              label="Add Subject"
+            />
+            <QuickAction
+              href="/admin/upload-excel"
+              icon={<FileSpreadsheet className="h-4 w-4 text-orange-600" />}
+              iconBg="bg-orange-100"
+              label="Upload Excel"
+            />
+            <QuickAction
+              href="/admin/view-results"
+              icon={<Eye className="h-4 w-4 text-red-600" />}
+              iconBg="bg-red-100"
+              label="View Results"
+            />
+            <QuickAction
+              href="/admin/student-performance"
+              icon={<BarChart2 className="h-4 w-4 text-violet-600" />}
+              iconBg="bg-violet-100"
+              label="Student Performance"
+              isNew
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ================================================================
+          FULL-WIDTH TOP 10 PERFORMERS
+      ================================================================ */}
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader className="pb-2 pt-4 px-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
+                <Medal className="h-4 w-4 text-amber-600" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-bold text-foreground">Top 10 Performers</CardTitle>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Highest CGPA across all semesters
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/admin/toppers"
+              className="text-[11px] text-primary hover:underline flex items-center gap-0.5"
+            >
+              View All <ChevronRight className="h-3 w-3" />
+            </Link>
           </div>
+        </CardHeader>
+        <CardContent className="px-6 pb-5">
+          {loading ? (
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+              Loading…
+            </div>
+          ) : topPerformers.length === 0 ? (
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+              No topper data available
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/60 bg-muted/30">
+                  <th className="py-2.5 pl-3 pr-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground w-12">#</th>
+                  <th className="py-2.5 px-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</th>
+                  <th className="py-2.5 px-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">USN</th>
+                  <th className="py-2.5 pl-4 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">CGPA</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {topPerformers.map((t) => (
+                  <tr key={t.usn} className="hover:bg-muted/20 transition-colors">
+                    <td className="py-2.5 pl-3 pr-4">
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                          t.rank === 1
+                            ? "bg-amber-400 text-white"
+                            : t.rank === 2
+                              ? "bg-slate-300 text-slate-700"
+                              : t.rank === 3
+                                ? "bg-orange-400 text-white"
+                                : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {t.rank}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-4 font-medium text-foreground">{t.name}</td>
+                    <td className="py-2.5 px-4 text-muted-foreground text-xs uppercase tracking-wider font-mono">
+                      {t.usn}
+                    </td>
+                    <td className="py-2.5 pl-4 pr-3 text-right">
+                      <Badge
+                        variant="secondary"
+                        className="bg-primary/10 text-primary text-xs font-semibold"
+                      >
+                        {t.cgpa.toFixed(2)}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
 
-          <TopPerformersCard
-            allToppers={charts.toppers}
-            selectedYear={selectedYear}
-            onYearChange={setSelectedYear}
-          />
-        </>
-      )}
-      
-      {loading && (
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-             <Card key={i}>
-                <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
-                   Loading chart...
-                </CardContent>
-             </Card>
-          ))}
-        </div>
-      )}
-    </>
+      {/* ================================================================
+          FOOTER
+      ================================================================ */}
+      <footer className="mt-2 flex flex-col items-center justify-between gap-1 border-t border-border/40 pt-4 text-[11px] text-muted-foreground sm:flex-row">
+        <span>MIT Mysore &nbsp;|&nbsp; Student Result Analysis &nbsp;|&nbsp; Admin Panel</span>
+        <span>Last updated: {now}</span>
+      </footer>
+    </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// TopPerformersCard — academic-year filter + ranked table (no semester col)
-// ---------------------------------------------------------------------------
-interface TopPerformersCardProps {
-  allToppers: TopperEntry[];
-  selectedYear: string;
-  onYearChange: (year: string) => void;
+// ===========================================================================
+// LOCAL SUB-COMPONENTS (only used in this file — no other files modified)
+// ===========================================================================
+
+// --- StatCard ---------------------------------------------------------------
+interface StatCardProps {
+  icon: React.ReactNode;
+  iconBg: string;
+  label: string;
+  value: string;
+  sub: string;
+  valueSmall?: boolean;
+  loading?: boolean;
 }
 
-function TopPerformersCard({ allToppers, selectedYear, onYearChange }: TopPerformersCardProps) {
-  // Derive unique, sorted academic years from the data (frontend only)
-  const availableYears = useMemo(() => {
-    const years = new Set<string>();
-    allToppers.forEach((t) => {
-      if (t.academic_year) years.add(t.academic_year);
-    });
-    // Sort descending (most recent first)
-    return Array.from(years).sort((a, b) => b.localeCompare(a));
-  }, [allToppers]);
-
-  // Filter and take top 5 for the selected year
-  const filteredToppers = useMemo(() => {
-    const pool =
-      selectedYear === "all"
-        ? allToppers
-        : allToppers.filter((t) => t.academic_year === selectedYear);
-    return pool.slice(0, 10);
-  }, [allToppers, selectedYear]);
-
+function StatCard({ icon, iconBg, label, value, sub, valueSmall = false }: StatCardProps) {
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-base">Top Performers</CardTitle>
-          {availableYears.length > 0 && (
-            <div className="flex items-center gap-2">
-              <select
-                id="top-performers-year-filter"
-                value={selectedYear}
-                onChange={(e) => onYearChange(e.target.value)}
-                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="all">All Years</option>
-                {availableYears.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+    <Card className="border-border/60 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              {label}
+            </p>
+            <p
+              className={`mt-1.5 font-bold text-foreground leading-tight truncate ${valueSmall ? "text-base" : "text-xl"}`}
+            >
+              {value}
+            </p>
+            <p className="mt-1 text-[10px] text-muted-foreground truncate">{sub}</p>
+          </div>
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}
+          >
+            {icon}
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        {allToppers.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center p-4">No results available</p>
-        ) : (
-          <TopperTable toppers={filteredToppers} />
-        )}
       </CardContent>
     </Card>
+  );
+}
+
+// --- QuickAction ------------------------------------------------------------
+interface QuickActionProps {
+  href: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  label: string;
+  isNew?: boolean;
+}
+
+function QuickAction({ href, icon, iconBg, label, isNew = false }: QuickActionProps) {
+  return (
+    <a
+      href={href}
+      className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5 transition-colors hover:bg-muted/70 hover:border-border cursor-pointer"
+    >
+      <div className="flex items-center gap-2.5">
+        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+          {icon}
+        </div>
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        {isNew && (
+          <span className="rounded bg-primary/15 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">
+            NEW
+          </span>
+        )}
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+    </a>
   );
 }
