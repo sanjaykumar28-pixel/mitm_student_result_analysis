@@ -10,6 +10,12 @@ from app.schemas import (
     AdminResultSemester,
     AdminResultSubject,
     AdminResultsResponse,
+    AdminFailedSubject,
+    AdminFailedSubjectSemester,
+    AdminStudentFailedSubjectsResponse,
+    AdminPerformanceSemester,
+    AdminStudentPerformanceRow,
+    AdminStudentPerformanceResponse,
     AdminTopperRow,
     AdminToppersResponse,
     StudentAnalysisResponse,
@@ -25,13 +31,120 @@ from app.schemas import (
     StudentSubjectMark,
     StudentSubjectScore,
 )
-from app.services.grading import GRADE_POINTS, letter_grade
+from app.services.grading import GRADE_POINTS, fail_reasons, has_complete_marks, is_subject_pass, letter_grade
 
 
 def _as_float(value) -> float | None:
     if value is None:
         return None
     return float(value)
+
+
+def _performance_grade(mark: StudentMark) -> str | None:
+    """Resolve a display grade without trusting an old total-only stored grade."""
+    passed = is_subject_pass(
+        _as_float(mark.internal_marks), _as_float(mark.external_marks), _as_float(mark.total_marks)
+    )
+    if passed is False:
+        return "F"
+    if passed is True:
+        return letter_grade(_as_float(mark.total_marks) or 0)
+    return None
+
+
+def list_admin_student_performance(
+    db: Session, *, department: str | None, search: str | None
+) -> AdminStudentPerformanceResponse:
+    departments = [
+        row[0] for row in db.query(Student.department).distinct().order_by(Student.department.asc()).all() if row[0]
+    ]
+    query = db.query(Student)
+    if department:
+        query = query.filter(func.lower(Student.department) == department.lower())
+    if search:
+        like = f"%{search.lower()}%"
+        query = query.filter(or_(func.lower(Student.usn).like(like), func.lower(Student.student_name).like(like)))
+    students = query.order_by(Student.slno.asc(), Student.student_name.asc(), Student.usn.asc()).all()
+    if not students:
+        return AdminStudentPerformanceResponse(total=0, departments=departments, students=[])
+
+    usns = [student.usn for student in students]
+    marks_by_student_semester: dict[tuple[str, int], list[StudentMark]] = defaultdict(list)
+    for mark in db.query(StudentMark).filter(StudentMark.usn.in_(usns)).all():
+        marks_by_student_semester[(mark.usn, mark.semester)].append(mark)
+    results_by_student_semester = {
+        (result.usn, result.semester): result
+        for result in db.query(StudentResult).filter(StudentResult.usn.in_(usns)).all()
+    }
+
+    rows: list[AdminStudentPerformanceRow] = []
+    for student in students:
+        semesters = sorted({sem for usn, sem in marks_by_student_semester if usn == student.usn} | {
+            sem for usn, sem in results_by_student_semester if usn == student.usn
+        })
+        performance_semesters: list[AdminPerformanceSemester] = []
+        failed_total = 0
+        for semester in semesters:
+            marks = marks_by_student_semester.get((student.usn, semester), [])
+            result = results_by_student_semester.get((student.usn, semester))
+            failures = sum(
+                is_subject_pass(_as_float(mark.internal_marks), _as_float(mark.external_marks), _as_float(mark.total_marks)) is False
+                for mark in marks
+            )
+            complete = bool(marks) and all(
+                has_complete_marks(_as_float(mark.internal_marks), _as_float(mark.external_marks), _as_float(mark.total_marks))
+                for mark in marks
+            )
+            status = "FAIL" if failures else "PASS" if complete else "INCOMPLETE"
+            failed_total += failures
+            performance_semesters.append(AdminPerformanceSemester(
+                semester=semester, status=status, failed_subject_count=failures,
+                sgpa=_as_float(result.sgpa) if result else None,
+                cgpa=_as_float(result.cgpa) if result else None,
+            ))
+        rows.append(AdminStudentPerformanceRow(
+            sl_no=student.slno, usn=student.usn, student_name=student.student_name,
+            department=student.department, semesters=performance_semesters,
+            failed_subject_count=failed_total,
+        ))
+    return AdminStudentPerformanceResponse(total=len(rows), departments=departments, students=rows)
+
+
+def get_admin_failed_subjects(db: Session, *, usn: str) -> AdminStudentFailedSubjectsResponse:
+    student = db.query(Student).filter(Student.usn == usn).first()
+    if student is None:
+        raise ValueError("Student not found")
+    results = {result.semester: result for result in db.query(StudentResult).filter(StudentResult.usn == usn).all()}
+    grouped: dict[int, list[AdminFailedSubject]] = defaultdict(list)
+    marks = (
+        db.query(StudentMark, Subject)
+        .outerjoin(Subject, Subject.subject_code == StudentMark.subject_code)
+        .filter(StudentMark.usn == usn)
+        .order_by(StudentMark.semester.asc(), StudentMark.subject_code.asc())
+        .all()
+    )
+    for mark, subject in marks:
+        reasons = fail_reasons(_as_float(mark.internal_marks), _as_float(mark.external_marks), _as_float(mark.total_marks))
+        if not reasons:
+            continue
+        grade = _performance_grade(mark)
+        grouped[mark.semester].append(AdminFailedSubject(
+            subject_code=mark.subject_code,
+            subject_name=(subject.subject_name if subject else None) or mark.subject_code,
+            credits=subject.credits if subject else None,
+            internal_marks=_as_float(mark.internal_marks), external_marks=_as_float(mark.external_marks),
+            total_marks=_as_float(mark.total_marks), grade=grade,
+            grade_point=GRADE_POINTS.get(grade) if grade else None,
+            fail_reason="Multiple criteria failed" if len(reasons) > 1 else reasons[0],
+        ))
+    semesters = [AdminFailedSubjectSemester(
+        semester=semester, sgpa=_as_float(results[semester].sgpa) if semester in results else None,
+        cgpa=_as_float(results[semester].cgpa) if semester in results else None, subjects=subjects,
+    ) for semester, subjects in sorted(grouped.items())]
+    return AdminStudentFailedSubjectsResponse(
+        usn=student.usn, student_name=student.student_name, department=student.department,
+        failed_subject_count=sum(len(subjects) for subjects in grouped.values()), semesters=semesters,
+    )
 
 
 def list_admin_results(

@@ -79,12 +79,19 @@ function AdminDashboard() {
 
     async function loadAll() {
       try {
-        const [students, subjects, resultsData, toppersData] = await Promise.all([
+        const [students, subjects, resultsData, performanceData, summaryData, passData, toppersData] = await Promise.all([
           adminService.getStudents().catch(() => []),
           adminService.getSubjects().catch(() => []),
           adminService
             .getResults()
             .catch(() => ({ total: 0, results: [], department: null, semester: null, departments: [] })),
+          adminService.getDashboardPerformance().catch(() => ({ semesters: [] })),
+          adminService
+            .getDashboardResultSummary()
+            .catch(() => ({ total_passed: 0, total_failed: 0, passed_percentage: 0, failed_percentage: 0 })),
+          adminService
+            .getDashboardPassPercentage()
+            .catch(() => ({ academic_year: "", passed_students: 0, total_evaluated_students: 0, pass_percentage: 0 })),
           adminService.getToppers().catch(() => ({ toppers: [], department_toppers: [] })),
         ]);
 
@@ -107,20 +114,12 @@ function AdminDashboard() {
         const uniqueResults = Array.from(uniqueMap.values());
 
         // --- stats cards ---------------------------------------------------
-        let passed = 0;
-        let failed = 0;
         let cgpaSum = 0;
         let cgpaCount = 0;
         let topCgpa = -1;
         let topName = "—";
 
         for (const res of uniqueResults) {
-          const grade = (res.grade ?? "").toUpperCase();
-          if (grade !== "F" && grade !== "FAIL" && grade !== "ABSENT") {
-            passed++;
-          } else {
-            failed++;
-          }
           if (res.cgpa != null && res.cgpa > 0) {
             cgpaSum += res.cgpa;
             cgpaCount++;
@@ -131,8 +130,7 @@ function AdminDashboard() {
           }
         }
 
-        const total = uniqueResults.length;
-        const passedPct = total > 0 ? (passed / total) * 100 : 0;
+        const passedPct = passData.pass_percentage;
         const avgCgpa = cgpaCount > 0 ? cgpaSum / cgpaCount : 0;
 
         setTotalStudents(students.length);
@@ -141,25 +139,15 @@ function AdminDashboard() {
         setAverageCGPA(avgCgpa);
         setTopPerformerName(topName);
         setTopPerformerCgpa(topCgpa > 0 ? topCgpa : null);
-        setTotalPassed(passed);
-        setTotalFailed(failed);
+        setTotalPassed(summaryData.total_passed);
+        setTotalFailed(summaryData.total_failed);
 
         // --- semester performance (all results, not de-duped) ---------------
-        const semMap = new Map<number, { passed: number; failed: number }>();
-        for (const res of results) {
-          if (res.semester == null) continue;
-          if (!semMap.has(res.semester)) semMap.set(res.semester, { passed: 0, failed: 0 });
-          const s = semMap.get(res.semester)!;
-          const g = (res.grade ?? "").toUpperCase();
-          if (g !== "F" && g !== "FAIL" && g !== "ABSENT") {
-            s.passed++;
-          } else {
-            s.failed++;
-          }
-        }
-        const semPerf: SemPerf[] = Array.from(semMap.entries())
-          .sort((a, b) => a[0] - b[0])
-          .map(([sem, s]) => ({ semester: `Sem ${sem}`, passed: s.passed, failed: s.failed }));
+        const semPerf: SemPerf[] = performanceData.semesters.map((semester) => ({
+          semester: `Sem ${semester.semester}`,
+          passed: semester.passed,
+          failed: semester.failed,
+        }));
         setSemesterPerf(semPerf);
 
         // --- top performers (top 5, all semesters) -------------------------

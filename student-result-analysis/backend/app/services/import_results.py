@@ -117,7 +117,12 @@ def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUpload
 
             for mark in row.marks:
                 credits = credit_by_code[mark.subject_code]
-                grade, earned, points = subject_result(mark.total_marks, credits)
+                grade, earned, points = subject_result(
+                    mark.total_marks,
+                    credits,
+                    internal_marks=mark.internal_marks,
+                    external_marks=mark.external_marks,
+                )
                 grand_total += mark.total_marks
                 registered_credits += credits
                 earned_credits += earned

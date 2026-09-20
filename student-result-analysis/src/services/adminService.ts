@@ -129,6 +129,24 @@ export interface AdminResultsResponse {
   results: AdminResultRow[];
 }
 
+export interface AdminDashboardPerformanceResponse {
+  semesters: Array<{ semester: number; passed: number; failed: number }>;
+}
+
+export interface AdminDashboardResultSummaryResponse {
+  total_passed: number;
+  total_failed: number;
+  passed_percentage: number;
+  failed_percentage: number;
+}
+
+export interface AdminDashboardPassPercentageResponse {
+  academic_year: string;
+  passed_students: number;
+  total_evaluated_students: number;
+  pass_percentage: number;
+}
+
 export interface AdminResultSubject {
   subject_code: string;
   subject_name: string;
@@ -170,11 +188,73 @@ export interface AdminToppersResponse {
   department_toppers: AdminTopperRow[];
 }
 
+export interface AdminPerformanceSemester {
+  semester: number;
+  status: "PASS" | "FAIL" | "INCOMPLETE";
+  failed_subject_count: number;
+  sgpa: number | null;
+  cgpa: number | null;
+}
+
+export interface AdminStudentPerformanceRow {
+  sl_no: number | null;
+  usn: string;
+  student_name: string;
+  department: string;
+  semesters: AdminPerformanceSemester[];
+  failed_subject_count: number;
+}
+
+export interface AdminStudentPerformanceResponse {
+  total: number;
+  departments: string[];
+  students: AdminStudentPerformanceRow[];
+}
+
+export interface AdminFailedSubject {
+  subject_code: string;
+  subject_name: string;
+  credits: number | null;
+  internal_marks: number | null;
+  external_marks: number | null;
+  total_marks: number | null;
+  grade: string | null;
+  grade_point: number | null;
+  fail_reason: string;
+}
+
+export interface AdminFailedSubjectSemester {
+  semester: number;
+  sgpa: number | null;
+  cgpa: number | null;
+  subjects: AdminFailedSubject[];
+}
+
+export interface AdminStudentFailedSubjectsResponse {
+  usn: string;
+  student_name: string;
+  department: string;
+  failed_subject_count: number;
+  semesters: AdminFailedSubjectSemester[];
+}
+
 export const adminService = {
   getProfile: () => api.get<AdminProfile>("/admin/profile").then((r) => r.data),
   updateProfile: (data: AdminProfileUpdate) =>
     api.patch<AdminProfile>("/admin/profile", data).then((r) => r.data),
   getDashboardStats: () => api.get("/admin/stats").then((r) => r.data),
+  getDashboardPerformance: () =>
+    api
+      .get<AdminDashboardPerformanceResponse>("/admin/dashboard/performance-overview")
+      .then((r) => r.data),
+  getDashboardResultSummary: () =>
+    api
+      .get<AdminDashboardResultSummaryResponse>("/admin/dashboard/result-summary")
+      .then((r) => r.data),
+  getDashboardPassPercentage: () =>
+    api
+      .get<AdminDashboardPassPercentageResponse>("/admin/dashboard/pass-percentage")
+      .then((r) => r.data),
   addStudent: (data: AddStudentPayload) =>
     api.post<AddStudentResponse>("/admin/students", data).then((r) => r.data),
   getStudents: () => api.get<AdminStudentRow[]>("/admin/students").then((r) => r.data),
@@ -210,6 +290,16 @@ export const adminService = {
   getResultDetails: (usn: string) =>
     api
       .get<AdminResultDetailResponse>(`/admin/results/${encodeURIComponent(usn)}`)
+      .then((r) => r.data),
+  getStudentPerformance: (params?: { department?: string; search?: string }) =>
+    api
+      .get<AdminStudentPerformanceResponse>("/admin/student-performance", { params })
+      .then((r) => r.data),
+  getFailedSubjects: (usn: string) =>
+    api
+      .get<AdminStudentFailedSubjectsResponse>(
+        `/admin/student-performance/${encodeURIComponent(usn)}/failed-subjects`,
+      )
       .then((r) => r.data),
   deleteResult: (id: string) => api.delete(`/admin/results/${id}`).then((r) => r.data),
   getToppers: () => api.get<AdminToppersResponse>("/admin/toppers").then((r) => r.data),

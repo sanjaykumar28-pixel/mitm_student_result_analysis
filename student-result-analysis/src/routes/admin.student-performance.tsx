@@ -28,7 +28,6 @@ import { departments as knownDepartments } from "@/data/mockData";
 import {
   adminService,
   type AdminResultDetailResponse,
-  type AdminResultSemester,
 } from "@/services/adminService";
 import { getApiErrorMessage } from "@/services/api";
 import { toast } from "sonner";
@@ -53,7 +52,7 @@ interface GroupedStudent {
   usn: string;
   student_name: string;
   department: string;
-  semesters: Record<number, string>; // e.g., { 1: "P", 2: "F" }
+  semesters: Record<number, "P" | "F">;
   maxSem: number;
 }
 
@@ -92,32 +91,29 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
     setError(null);
 
     adminService
-      .getResults({
+      .getStudentPerformance({
         department: dept === "all" ? undefined : dept,
         search: debouncedQuery || undefined,
       })
       .then((data) => {
         if (cancelled) return;
 
-        // Group the flat results by USN
-        const groupedMap = new Map<string, GroupedStudent>();
-        for (const row of data.results) {
-          if (!groupedMap.has(row.usn)) {
-            groupedMap.set(row.usn, {
-              usn: row.usn,
-              student_name: row.student_name,
-              department: row.department,
-              semesters: {},
-              maxSem: row.semester,
-            });
-          }
-          const st = groupedMap.get(row.usn)!;
-          // Determine Pass/Fail from overall grade if available
-          st.semesters[row.semester] = row.grade === "F" ? "F" : "P";
-          if (row.semester > st.maxSem) st.maxSem = row.semester;
-        }
-
-        setGroupedStudents(Array.from(groupedMap.values()));
+        setGroupedStudents(
+          data.students.map((row) => ({
+            usn: row.usn,
+            student_name: row.student_name,
+            department: row.department,
+            semesters: Object.fromEntries(
+              row.semesters
+                .filter((semester) => semester.status !== "INCOMPLETE")
+                .map((semester) => [semester.semester, semester.status === "FAIL" ? "F" : "P"]),
+            ),
+            maxSem: row.semesters.reduce(
+              (maxSemester, semester) => Math.max(maxSemester, semester.semester),
+              0,
+            ),
+          })),
+        );
         setApiDepartments(data.departments);
         setPage(1);
       })
@@ -354,10 +350,19 @@ function StudentPerformanceDetail({ usn, onBack }: { usn: string; onBack: () => 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    adminService
-      .getResultDetails(usn)
-      .then((data) => {
-        if (!cancelled) setDetail(data);
+    Promise.all([adminService.getResultDetails(usn), adminService.getFailedSubjects(usn)])
+      .then(([resultDetail, failedSubjects]) => {
+        if (cancelled) return;
+        const failedBySemester = new Map(
+          failedSubjects.semesters.map((semester) => [semester.semester, semester.subjects]),
+        );
+        setDetail({
+          ...resultDetail,
+          semesters: resultDetail.semesters.map((semester) => ({
+            ...semester,
+            subjects: failedBySemester.get(semester.semester) ?? [],
+          })),
+        });
       })
       .catch((err) => {
         if (!cancelled) setError(getApiErrorMessage(err, "Failed to load details"));
@@ -413,12 +418,10 @@ function StudentPerformanceDetail({ usn, onBack }: { usn: string; onBack: () => 
   const latestSemester =
     totalSemesters > 0 ? sortedSemesters[sortedSemesters.length - 1].semester : 0;
 
-  const semestersWithBacklogs = sortedSemesters.filter((sem) =>
-    sem.subjects.some((s) => s.grade === "F"),
-  ).length;
+  const semestersWithBacklogs = sortedSemesters.length;
 
   const totalFailedSubjects = sortedSemesters.reduce(
-    (acc, sem) => acc + sem.subjects.filter((s) => s.grade === "F").length,
+    (acc, sem) => acc + sem.subjects.length,
     0,
   );
 
@@ -534,9 +537,9 @@ function StudentPerformanceDetail({ usn, onBack }: { usn: string; onBack: () => 
         ) : (
           <div className="space-y-3">
             {sortedSemesters.map((sem) => {
-              const failedSubjects = sem.subjects.filter((s) => s.grade === "F");
+              const failedSubjects = sem.subjects;
               const hasFailed = failedSubjects.length > 0;
-              const isExpanded = expandedSems.has(sem.semester) || hasFailed; // default expand if failed
+              const isExpanded = expandedSems.has(sem.semester) || hasFailed;
 
               return (
                 <div
@@ -561,12 +564,7 @@ function StudentPerformanceDetail({ usn, onBack }: { usn: string; onBack: () => 
                       </div>
                       <div>
                         <div className="font-bold text-foreground">
-                          Semester {sem.semester}{" "}
-                          {sem.academic_year && (
-                            <span className="font-normal text-muted-foreground ml-1">
-                              ({sem.academic_year})
-                            </span>
-                          )}
+                          Semester {sem.semester}
                         </div>
                         <div
                           className={`text-sm mt-0.5 ${hasFailed ? "text-destructive font-semibold" : "text-success"}`}

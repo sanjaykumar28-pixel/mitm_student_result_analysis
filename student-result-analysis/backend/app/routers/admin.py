@@ -19,6 +19,11 @@ from app.schemas import (
     AdminResultsResponse,
     AdminResultDetailResponse,
     AdminToppersResponse,
+    AdminDashboardPassPercentageResponse,
+    AdminDashboardPerformanceResponse,
+    AdminDashboardResultSummaryResponse,
+    AdminStudentFailedSubjectsResponse,
+    AdminStudentPerformanceResponse,
     ImportUploadResponse,
 )
 from app.services.excel_parser import parse_result_workbook
@@ -28,12 +33,50 @@ from app.services.bulk_students import (
     persist_bulk_students,
 )
 from app.services.import_results import ImportValidationError, persist_parsed_workbook
-from app.services.results import get_admin_result_details, list_admin_results, list_admin_toppers
+from app.services.results import (
+    get_admin_failed_subjects,
+    get_admin_result_details,
+    list_admin_results,
+    list_admin_student_performance,
+    list_admin_toppers,
+)
+from app.services.dashboard import (
+    get_dashboard_pass_percentage,
+    get_dashboard_performance,
+    get_dashboard_result_summary,
+)
 from app.services.students import create_student_with_login
 from app.services.subjects import create_subject, list_subjects
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
+
+
+@router.get("/dashboard/performance-overview", response_model=AdminDashboardPerformanceResponse)
+def dashboard_performance_overview(
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminDashboardPerformanceResponse:
+    """Return unique evaluated student pass/fail counts grouped by semester."""
+    return get_dashboard_performance(db)
+
+
+@router.get("/dashboard/result-summary", response_model=AdminDashboardResultSummaryResponse)
+def dashboard_result_summary(
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminDashboardResultSummaryResponse:
+    """Return one latest evaluated outcome per student across all academic years."""
+    return get_dashboard_result_summary(db)
+
+
+@router.get("/dashboard/pass-percentage", response_model=AdminDashboardPassPercentageResponse)
+def dashboard_pass_percentage(
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminDashboardPassPercentageResponse:
+    """Return the current academic year's evaluated-student pass percentage."""
+    return get_dashboard_pass_percentage(db)
 
 
 def to_admin_profile(login: Login) -> AdminProfileResponse:
@@ -194,6 +237,36 @@ def get_admin_results(
         dept = None
     q = search.strip() if search and search.strip() else None
     return list_admin_results(db, department=dept, semester=semester, search=q)
+
+
+@router.get("/student-performance", response_model=AdminStudentPerformanceResponse)
+def get_student_performance(
+    department: str | None = Query(None, max_length=80),
+    search: str | None = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminStudentPerformanceResponse:
+    """Admin-only aggregate based on component marks, not result letter grades."""
+    dept = department.strip() if department and department.strip() else None
+    if dept and dept.lower() == "all":
+        dept = None
+    q = search.strip() if search and search.strip() else None
+    return list_admin_student_performance(db, department=dept, search=q)
+
+
+@router.get(
+    "/student-performance/{usn}/failed-subjects",
+    response_model=AdminStudentFailedSubjectsResponse,
+)
+def get_student_failed_subjects(
+    usn: str = Path(..., min_length=10, max_length=20),
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminStudentFailedSubjectsResponse:
+    try:
+        return get_admin_failed_subjects(db, usn=usn.strip().upper())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.get("/results/{usn}", response_model=AdminResultDetailResponse)

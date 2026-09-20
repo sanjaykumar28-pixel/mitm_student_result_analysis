@@ -28,6 +28,49 @@ GRADE_POINTS = {
 }
 
 
+def fail_reasons(
+    internal_marks: float | None,
+    external_marks: float | None,
+    total_marks: float | None,
+) -> list[str]:
+    """Return the authoritative subject failure reasons.
+
+    A missing mark is deliberately not a failure.  Callers can use an empty
+    result together with :func:`has_complete_marks` to represent incomplete
+    result data instead of creating a false backlog.
+    """
+    if not has_complete_marks(internal_marks, external_marks, total_marks):
+        return []
+
+    reasons: list[str] = []
+    if float(internal_marks) < 25:
+        reasons.append("CIE below 25")
+    if float(external_marks) < 25:
+        reasons.append("SEE below 25")
+    if float(total_marks) < 40:
+        reasons.append("Total below 40")
+    return reasons
+
+
+def has_complete_marks(
+    internal_marks: float | None,
+    external_marks: float | None,
+    total_marks: float | None,
+) -> bool:
+    return internal_marks is not None and external_marks is not None and total_marks is not None
+
+
+def is_subject_pass(
+    internal_marks: float | None,
+    external_marks: float | None,
+    total_marks: float | None,
+) -> bool | None:
+    """Return True/False for complete marks, or None when results are incomplete."""
+    if not has_complete_marks(internal_marks, external_marks, total_marks):
+        return None
+    return not fail_reasons(internal_marks, external_marks, total_marks)
+
+
 def default_credits(subject_code: str) -> int:
     code = subject_code.upper()
     if "MCAL" in code or "LAB" in code:
@@ -51,8 +94,21 @@ def letter_grade(total: float) -> str:
     return "F"
 
 
-def subject_result(total: float, credits: int) -> tuple[str, int, float]:
-    grade = letter_grade(total)
+def subject_result(
+    total: float,
+    credits: int,
+    *,
+    internal_marks: float | None = None,
+    external_marks: float | None = None,
+) -> tuple[str, int, float]:
+    """Calculate a grade and credit outcome.
+
+    When component marks are supplied, the academic minimums take precedence
+    over a total-only letter-grade band.
+    """
+    passed = is_subject_pass(internal_marks, external_marks, total)
+    grade = "F" if passed is False else letter_grade(total)
     points = GRADE_POINTS[grade]
     earned = 0 if grade == "F" else credits
     return grade, earned, credits * points
+

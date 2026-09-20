@@ -10,6 +10,7 @@ from app.database import Base
 from app.models import Student, StudentMark, StudentResult, Subject
 from app.services.excel_parser import ParsedMark, ParsedStudent, ParsedWorkbook, SubjectColumns
 from app.services.import_results import ImportValidationError, persist_parsed_workbook
+from app.services.grading import fail_reasons, is_subject_pass
 
 
 def make_workbook(name: str = "AALIYA TABASUM") -> ParsedWorkbook:
@@ -126,3 +127,12 @@ def test_subject_metadata_mismatch_is_rejected():
         assert subject.semester == 8
         assert subject.department == "OLD"
         assert db.query(func.count(Subject.subject_id)).scalar() == 1
+
+
+def test_component_mark_failure_rules_are_or_conditions():
+    assert is_subject_pass(40, 20, 60) is False
+    assert is_subject_pass(34, 30, 64) is False
+    assert is_subject_pass(40, 25, 65) is True
+    assert is_subject_pass(20, 20, 40) is False
+    assert fail_reasons(20, 20, 40) == ["CIE below 35", "SEE below 25"]
+    assert is_subject_pass(None, 25, 65) is None

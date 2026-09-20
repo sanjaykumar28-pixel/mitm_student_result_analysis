@@ -204,6 +204,30 @@ class AdminResultsResponse(BaseModel):
     results: list[AdminResultRow]
 
 
+class AdminDashboardPerformanceSemester(BaseModel):
+    semester: int
+    passed: int
+    failed: int
+
+
+class AdminDashboardPerformanceResponse(BaseModel):
+    semesters: list[AdminDashboardPerformanceSemester]
+
+
+class AdminDashboardResultSummaryResponse(BaseModel):
+    total_passed: int
+    total_failed: int
+    passed_percentage: float
+    failed_percentage: float
+
+
+class AdminDashboardPassPercentageResponse(BaseModel):
+    academic_year: str
+    passed_students: int
+    total_evaluated_students: int
+    pass_percentage: float
+
+
 class AdminResultSubject(BaseModel):
     subject_code: str
     subject_name: str
@@ -243,6 +267,56 @@ class AdminTopperRow(BaseModel):
 class AdminToppersResponse(BaseModel):
     toppers: list[AdminTopperRow]
     department_toppers: list[AdminTopperRow]
+
+
+class AdminPerformanceSemester(BaseModel):
+    semester: int
+    status: Literal["PASS", "FAIL", "INCOMPLETE"]
+    failed_subject_count: int = 0
+    sgpa: float | None = None
+    cgpa: float | None = None
+
+
+class AdminStudentPerformanceRow(BaseModel):
+    sl_no: int | None = None
+    usn: str
+    student_name: str
+    department: str
+    semesters: list[AdminPerformanceSemester] = Field(default_factory=list)
+    failed_subject_count: int = 0
+
+
+class AdminStudentPerformanceResponse(BaseModel):
+    total: int
+    departments: list[str]
+    students: list[AdminStudentPerformanceRow]
+
+
+class AdminFailedSubject(BaseModel):
+    subject_code: str
+    subject_name: str
+    credits: int | None = None
+    internal_marks: float | None = None
+    external_marks: float | None = None
+    total_marks: float | None = None
+    grade: str | None = None
+    grade_point: int | None = None
+    fail_reason: str
+
+
+class AdminFailedSubjectSemester(BaseModel):
+    semester: int
+    sgpa: float | None = None
+    cgpa: float | None = None
+    subjects: list[AdminFailedSubject]
+
+
+class AdminStudentFailedSubjectsResponse(BaseModel):
+    usn: str
+    student_name: str
+    department: str
+    failed_subject_count: int
+    semesters: list[AdminFailedSubjectSemester]
 
 
 class StudentSubjectMark(BaseModel):
