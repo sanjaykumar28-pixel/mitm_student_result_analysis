@@ -43,10 +43,10 @@ def fail_reasons(
         return []
 
     reasons: list[str] = []
-    if float(internal_marks) < 25:
-        reasons.append("CIE below 25")
-    if float(external_marks) < 25:
-        reasons.append("SEE below 25")
+    if float(internal_marks) < 35:
+        reasons.append("CIE below 35")
+    if float(external_marks) < 20:
+        reasons.append("SEE below 20")
     if float(total_marks) < 40:
         reasons.append("Total below 40")
     return reasons
