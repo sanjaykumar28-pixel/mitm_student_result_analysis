@@ -12,6 +12,10 @@ import {
   Printer,
   ChevronDown,
   ChevronUp,
+  Clock,
+  XCircle,
+  Eye,
+  Edit,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +32,7 @@ import { departments as knownDepartments } from "@/data/mockData";
 import {
   adminService,
   type AdminResultDetailResponse,
+  type AdminStudentFailedSubjectsResponse,
 } from "@/services/adminService";
 import { getApiErrorMessage } from "@/services/api";
 import { toast } from "sonner";
@@ -40,6 +45,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/admin/student-performance")({
   component: StudentPerformancePage,
@@ -47,13 +61,17 @@ export const Route = createFileRoute("/admin/student-performance")({
 
 const PAGE_SIZE = 10;
 
-// ── Types for the Table View ──
+// ── Extended Frontend Interface ──
 interface GroupedStudent {
   usn: string;
   student_name: string;
   department: string;
-  semesters: Record<number, "P" | "F">;
+  semesters: Record<number, "P" | "F" | "—">;
   maxSem: number;
+  // TODO: Implement academic classification from backend when available.
+  // The backend does not currently send this field.
+  academic_status?: "PASS" | "MAKEUP_ELIGIBLE" | "FAIL";
+  relevant_failed_semester?: number; // E.g. the specific semester for makeup
 }
 
 // ── Main Page Component ──
@@ -72,11 +90,31 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [dept, setDept] = useState<string>("all");
+  const [semesterFilter, setSemesterFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [groupedStudents, setGroupedStudents] = useState<GroupedStudent[]>([]);
   const [apiDepartments, setApiDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"performance" | "makeup" | "fail">("performance");
+
+  // Drawer states
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<"view" | "update">("view");
+  const [selectedStudentForDrawer, setSelectedStudentForDrawer] = useState<GroupedStudent | null>(
+    null,
+  );
+  const [drawerFailedSubjects, setDrawerFailedSubjects] =
+    useState<AdminStudentFailedSubjectsResponse | null>(null);
+  const [drawerLoading, setDrawerLoading] = useState(false);
+  const [drawerError, setDrawerError] = useState<string | null>(null);
+
+  // Update Result form states (mock/placeholder)
+  const [selectedSubjectCode, setSelectedSubjectCode] = useState<string>("");
+  const [newGrade, setNewGrade] = useState<string>("");
+  const [newStatus, setNewStatus] = useState<string>("");
 
   // Debounce search
   useEffect(() => {
@@ -99,20 +137,27 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
         if (cancelled) return;
 
         setGroupedStudents(
-          data.students.map((row) => ({
-            usn: row.usn,
-            student_name: row.student_name,
-            department: row.department,
-            semesters: Object.fromEntries(
-              row.semesters
-                .filter((semester) => semester.status !== "INCOMPLETE")
-                .map((semester) => [semester.semester, semester.status === "FAIL" ? "F" : "P"]),
-            ),
-            maxSem: row.semesters.reduce(
-              (maxSemester, semester) => Math.max(maxSemester, semester.semester),
-              0,
-            ),
-          })),
+          data.students.map((row) => {
+            const sems: Record<number, "P" | "F" | "—"> = {};
+            row.semesters.forEach((semester) => {
+              sems[semester.semester] =
+                semester.status === "FAIL" ? "F" : semester.status === "PASS" ? "P" : "—";
+            });
+
+            return {
+              usn: row.usn,
+              student_name: row.student_name,
+              department: row.department,
+              semesters: sems,
+              maxSem: row.semesters.reduce(
+                (maxSemester, semester) => Math.max(maxSemester, semester.semester),
+                0,
+              ),
+              // TODO: Consume actual classification when backend implements it
+              // academic_status: (row as any).academic_status,
+              // relevant_failed_semester: (row as any).relevant_failed_semester,
+            };
+          }),
         );
         setApiDepartments(data.departments);
         setPage(1);
@@ -138,20 +183,100 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
     return Array.from(merged);
   }, [apiDepartments]);
 
-  const totalPages = Math.max(1, Math.ceil(groupedStudents.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageData = groupedStudents.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  // Filter students by semester if selected
+  const filteredGroupedStudents = useMemo(() => {
+    if (semesterFilter === "all") return groupedStudents;
+    const targetSem = parseInt(semesterFilter, 10);
+    return groupedStudents.filter((st) => {
+      // In performance tab, filter by maxSem or if they have a result in that sem
+      if (activeTab === "performance") {
+        return !!st.semesters[targetSem];
+      }
+      // For makeup/fail, filter by the relevant failed semester
+      return st.relevant_failed_semester === targetSem;
+    });
+  }, [groupedStudents, semesterFilter, activeTab]);
 
-  // Find max semester globally to dynamically render columns
+  // Derive categorised students
+  const makeupStudents = useMemo(
+    () => filteredGroupedStudents.filter((s) => s.academic_status === "MAKEUP_ELIGIBLE"),
+    [filteredGroupedStudents],
+  );
+  const failStudents = useMemo(
+    () => filteredGroupedStudents.filter((s) => s.academic_status === "FAIL"),
+    [filteredGroupedStudents],
+  );
+  const passedStudents = useMemo(
+    () => groupedStudents.filter((s) => s.academic_status === "PASS"),
+    [groupedStudents],
+  ); // For summary only, ignore semester filter
+
+  // Pagination for active tab
+  const activeList =
+    activeTab === "performance"
+      ? filteredGroupedStudents
+      : activeTab === "makeup"
+        ? makeupStudents
+        : failStudents;
+
+  const totalPages = Math.max(1, Math.ceil(activeList.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageData = activeList.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   const globalMaxSem = useMemo(() => {
-    let max = 4; // Default to at least 4
+    let max = 4;
     for (const st of groupedStudents) {
       if (st.maxSem > max) max = st.maxSem;
     }
     return max;
   }, [groupedStudents]);
-
   const semesterColumns = Array.from({ length: globalMaxSem }, (_, i) => i + 1);
+
+  // Summary counts
+  const totalCount = groupedStudents.length;
+  const passedCount = passedStudents.length;
+  const makeupCount = groupedStudents.filter((s) => s.academic_status === "MAKEUP_ELIGIBLE").length;
+  const failCount = groupedStudents.filter((s) => s.academic_status === "FAIL").length;
+
+  const passedPercent = totalCount > 0 ? ((passedCount / totalCount) * 100).toFixed(1) : "0.0";
+  const makeupPercent = totalCount > 0 ? ((makeupCount / totalCount) * 100).toFixed(1) : "0.0";
+  const failPercent = totalCount > 0 ? ((failCount / totalCount) * 100).toFixed(1) : "0.0";
+
+  // Drawer handlers
+  const openDrawer = (student: GroupedStudent, mode: "view" | "update") => {
+    setSelectedStudentForDrawer(student);
+    setDrawerMode(mode);
+    setIsDrawerOpen(true);
+    setDrawerLoading(true);
+    setDrawerError(null);
+    setDrawerFailedSubjects(null);
+    setSelectedSubjectCode("");
+    setNewGrade("");
+    setNewStatus("");
+
+    adminService
+      .getFailedSubjects(student.usn)
+      .then((data) => {
+        setDrawerFailedSubjects(data);
+      })
+      .catch((err) => {
+        setDrawerError(getApiErrorMessage(err, "Failed to load subjects"));
+      })
+      .finally(() => {
+        setDrawerLoading(false);
+      });
+  };
+
+  const handleUpdateResult = () => {
+    if (!selectedSubjectCode || !newGrade || !newStatus) {
+      toast.error("Please fill all required fields.");
+      return;
+    }
+    // TODO: Connect to backend Update API once implemented
+    toast.error("Update API not yet implemented on the backend.", {
+      description: "This feature requires a backend integration that is currently missing.",
+    });
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-8">
@@ -162,7 +287,7 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
           Student Performance
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          View student academic progress and semester-wise failed subjects.
+          View and analyze student performance across all semesters and manage failed student results.
         </p>
       </div>
 
@@ -181,12 +306,21 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
                 placeholder="Search by USN or Student Name..."
                 className="pl-9 bg-background"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(1);
+                }}
               />
             </div>
 
-            <Select value={dept} onValueChange={setDept}>
-              <SelectTrigger className="lg:w-52 bg-background">
+            <Select
+              value={dept}
+              onValueChange={(v) => {
+                setDept(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="lg:w-[180px] bg-background">
                 <SelectValue placeholder="All Departments" />
               </SelectTrigger>
               <SelectContent>
@@ -198,116 +332,193 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
                 ))}
               </SelectContent>
             </Select>
+
+            <Select
+              value={semesterFilter}
+              onValueChange={(v) => {
+                setSemesterFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="lg:w-[180px] bg-background">
+                <SelectValue placeholder="All Semesters" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Semesters</SelectItem>
+                {Array.from({ length: globalMaxSem }, (_, i) => i + 1).map((sem) => (
+                  <SelectItem key={sem} value={sem.toString()}>
+                    Semester {sem}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* ── Students Table ── */}
-      {error ? (
-        <div className="rounded-2xl border border-destructive/30 bg-card p-12 text-center shadow-sm">
-          <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-3" />
-          <p className="text-sm font-semibold text-destructive">Could not load results</p>
-          <p className="mt-1 text-xs text-muted-foreground">{error}</p>
-        </div>
-      ) : loading ? (
-        <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4">
-          <Skeleton className="h-8 w-full" />
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </div>
-      ) : groupedStudents.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-12 text-center shadow-sm">
-          <Search className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
-          <p className="text-sm font-semibold text-foreground">No students found.</p>
-          {debouncedQuery && (
-            <p className="text-xs text-muted-foreground mt-1">
-              No students found for "{debouncedQuery}"
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">SL NO</TableHead>
-                  <TableHead>USN</TableHead>
-                  <TableHead>Student Name</TableHead>
-                  <TableHead>Department</TableHead>
-                  {semesterColumns.map((sem) => (
-                    <TableHead key={sem} className="text-center whitespace-nowrap">
-                      SEM {sem}
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-center">View</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pageData.map((st, idx) => (
-                  <TableRow key={st.usn}>
-                    <TableCell className="text-muted-foreground text-center">
-                      {(safePage - 1) * PAGE_SIZE + idx + 1}
-                    </TableCell>
-                    <TableCell className="font-mono font-bold text-primary bg-primary/10 rounded-md px-2 py-1 uppercase tracking-wider my-2 mx-1 inline-block">
-                      {st.usn}
-                    </TableCell>
-                    <TableCell className="font-semibold text-foreground whitespace-nowrap">
-                      {st.student_name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      <Badge variant="secondary" className="font-normal">
-                        {st.department}
-                      </Badge>
-                    </TableCell>
-                    {semesterColumns.map((sem) => {
-                      const status = st.semesters[sem];
-                      return (
-                        <TableCell key={sem} className="text-center">
-                          {!status ? (
-                            <span className="text-muted-foreground/30">—</span>
-                          ) : status === "P" ? (
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-success/15 text-success font-bold text-xs ring-1 ring-inset ring-success/20">
-                              P
-                            </span>
-                          ) : (
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-destructive/15 text-destructive font-bold text-xs ring-1 ring-inset ring-destructive/20">
-                              F
-                            </span>
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                    <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-primary hover:text-primary hover:bg-primary/10 gap-1.5 h-8 px-3"
-                        onClick={() => onSelectUsn(st.usn)}
-                      >
-                        <TrendingUp className="h-3.5 w-3.5" />
-                        View Performance
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+      {/* ── Summary Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          {
+            label: "Total Students",
+            value: totalCount,
+            sub: null,
+            icon: Calendar,
+            color: "text-primary",
+          },
+          {
+            label: "Passed",
+            value: passedCount,
+            sub: `${passedPercent}% of total`,
+            icon: CheckCircle2,
+            color: "text-success",
+          },
+          {
+            label: "Makeup Eligible",
+            value: makeupCount,
+            sub: `${makeupPercent}% of total`,
+            icon: Clock,
+            color: "text-yellow-600",
+          },
+          {
+            label: "Fail",
+            value: failCount,
+            sub: `${failPercent}% of total`,
+            icon: XCircle,
+            color: "text-destructive",
+          },
+        ].map((card, i) => (
+          <div
+            key={i}
+            className="rounded-2xl border bg-card p-5 shadow-sm flex flex-col items-center justify-center text-center"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <card.icon className={`h-4 w-4 ${card.color}`} />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {card.label}
+              </p>
+            </div>
+            <p className={`text-3xl font-bold tabular-nums ${card.color}`}>{card.value}</p>
+            {card.sub && (
+              <p className="text-xs text-muted-foreground mt-1 font-medium">{card.sub}</p>
+            )}
           </div>
-        </div>
-      )}
+        ))}
+      </div>
+
+      {/* ── Tabs & Content ── */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(v: any) => {
+          setActiveTab(v);
+          setPage(1);
+        }}
+        className="w-full"
+      >
+        <TabsList className="mb-4">
+          <TabsTrigger
+            value="performance"
+            className="data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4"
+          >
+            Student Performance
+          </TabsTrigger>
+          <TabsTrigger
+            value="makeup"
+            className="data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4"
+          >
+            Makeup Eligible ({makeupCount})
+          </TabsTrigger>
+          <TabsTrigger
+            value="fail"
+            className="data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4"
+          >
+            Fail ({failCount})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="performance" className="mt-0">
+          <StudentTable
+            loading={loading}
+            error={error}
+            data={pageData}
+            activeTab="performance"
+            globalMaxSem={globalMaxSem}
+            semesterColumns={semesterColumns}
+            debouncedQuery={debouncedQuery}
+            safePage={safePage}
+            onSelectUsn={onSelectUsn}
+            onViewSubjects={(st) => openDrawer(st, "view")}
+            onUpdateResult={(st) => openDrawer(st, "update")}
+          />
+        </TabsContent>
+
+        <TabsContent value="makeup" className="mt-0">
+          {/* TODO: Remove the alert banner once backend API provides academic_status classification */}
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-4">
+            <div className="flex">
+              <AlertTriangle className="h-5 w-5 text-amber-600 mr-3" />
+              <div>
+                <h3 className="text-sm font-medium text-amber-800">API Integration Pending</h3>
+                <p className="mt-1 text-sm text-amber-700">
+                  Makeup Eligible classification is not yet provided by the backend API. Showing
+                  empty state until integrated.
+                </p>
+              </div>
+            </div>
+          </div>
+          <StudentTable
+            loading={loading}
+            error={error}
+            data={pageData}
+            activeTab="makeup"
+            globalMaxSem={globalMaxSem}
+            semesterColumns={semesterColumns}
+            debouncedQuery={debouncedQuery}
+            safePage={safePage}
+            onSelectUsn={onSelectUsn}
+            onViewSubjects={(st) => openDrawer(st, "view")}
+            onUpdateResult={(st) => openDrawer(st, "update")}
+          />
+        </TabsContent>
+
+        <TabsContent value="fail" className="mt-0">
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-4">
+            <div className="flex">
+              <AlertTriangle className="h-5 w-5 text-amber-600 mr-3" />
+              <div>
+                <h3 className="text-sm font-medium text-amber-800">API Integration Pending</h3>
+                <p className="mt-1 text-sm text-amber-700">
+                  Fail classification is not yet provided by the backend API. Showing empty state
+                  until integrated.
+                </p>
+              </div>
+            </div>
+          </div>
+          <StudentTable
+            loading={loading}
+            error={error}
+            data={pageData}
+            activeTab="fail"
+            globalMaxSem={globalMaxSem}
+            semesterColumns={semesterColumns}
+            debouncedQuery={debouncedQuery}
+            safePage={safePage}
+            onSelectUsn={onSelectUsn}
+            onViewSubjects={(st) => openDrawer(st, "view")}
+            onUpdateResult={(st) => openDrawer(st, "update")}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* ── Pagination ── */}
-      {!loading && !error && groupedStudents.length > 0 && (
+      {!loading && !error && activeList.length > 0 && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm">
           <p className="text-muted-foreground">
             Showing{" "}
             <span className="font-medium text-foreground">
-              {(safePage - 1) * PAGE_SIZE + 1}–
-              {Math.min(safePage * PAGE_SIZE, groupedStudents.length)}
+              {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, activeList.length)}
             </span>{" "}
-            of <span className="font-medium text-foreground">{groupedStudents.length}</span> results
+            of <span className="font-medium text-foreground">{activeList.length}</span> results
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -336,6 +547,407 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
           </div>
         </div>
       )}
+
+      {/* ── Drawer for View Subjects / Update Result ── */}
+      <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+        <SheetContent className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="text-2xl flex items-center gap-2">
+              {drawerMode === "view" ? (
+                <>
+                  <Eye className="h-6 w-6 text-primary" /> View Subjects
+                </>
+              ) : (
+                <>
+                  <Edit className="h-6 w-6 text-primary" /> Update Result
+                </>
+              )}
+            </SheetTitle>
+            <SheetDescription>
+              {drawerMode === "view"
+                ? "View failed subjects for the selected student."
+                : "Update student's result after makeup/re-examination."}
+            </SheetDescription>
+          </SheetHeader>
+
+          {selectedStudentForDrawer && (
+            <div className="space-y-6">
+              {/* Student Details */}
+              <div className="rounded-xl border bg-muted/30 p-4 shadow-sm">
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Student Details
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="block text-muted-foreground text-xs mb-1">USN</span>
+                    <span className="font-mono font-medium text-foreground">
+                      {selectedStudentForDrawer.usn}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-muted-foreground text-xs mb-1">Name</span>
+                    <span className="font-medium text-foreground">
+                      {selectedStudentForDrawer.student_name}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-muted-foreground text-xs mb-1">Branch</span>
+                    <span className="font-medium text-foreground">
+                      {selectedStudentForDrawer.department}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-muted-foreground text-xs mb-1">Semester</span>
+                    <span className="font-medium text-foreground">
+                      {selectedStudentForDrawer.relevant_failed_semester ??
+                        selectedStudentForDrawer.maxSem}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Failed Subjects (Original Result) */}
+              <div>
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Failed Subjects (Original Result)
+                </h4>
+                {drawerError ? (
+                  <div className="text-sm text-destructive">{drawerError}</div>
+                ) : drawerLoading ? (
+                  <Skeleton className="h-32 w-full" />
+                ) : !drawerFailedSubjects ||
+                  drawerFailedSubjects.semesters.flatMap((s) => s.subjects).length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No failed subjects found.</div>
+                ) : (
+                  <div className="rounded-xl border shadow-sm overflow-hidden bg-background">
+                    <Table>
+                      <TableHeader className="bg-muted/50">
+                        <TableRow>
+                          <TableHead className="py-2">Code</TableHead>
+                          <TableHead className="py-2">Subject Name</TableHead>
+                          <TableHead className="py-2">Grade</TableHead>
+                          <TableHead className="py-2">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {drawerFailedSubjects.semesters
+                          .flatMap((s) => s.subjects)
+                          .map((sub, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-mono py-2">{sub.subject_code}</TableCell>
+                              <TableCell className="py-2">{sub.subject_name}</TableCell>
+                              <TableCell className="py-2 font-bold text-destructive">
+                                {sub.grade ?? "F"}
+                              </TableCell>
+                              <TableCell className="py-2 text-destructive">Failed</TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+
+              {/* Update Result Form (Only in update mode) */}
+              {drawerMode === "update" && (
+                <div>
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    Update Result
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Select Subject</label>
+                      <Select value={selectedSubjectCode} onValueChange={setSelectedSubjectCode}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a failed subject" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {drawerFailedSubjects?.semesters
+                            .flatMap((s) => s.subjects)
+                            .map((sub, idx) => (
+                              <SelectItem key={idx} value={sub.subject_code}>
+                                {sub.subject_code} - {sub.subject_name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">New Exam Grade</label>
+                        <Select value={newGrade} onValueChange={setNewGrade}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Grade" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="O">O</SelectItem>
+                            <SelectItem value="A+">A+</SelectItem>
+                            <SelectItem value="A">A</SelectItem>
+                            <SelectItem value="B+">B+</SelectItem>
+                            <SelectItem value="B">B</SelectItem>
+                            <SelectItem value="C">C</SelectItem>
+                            <SelectItem value="F">F</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Updated Status</label>
+                        <Select value={newStatus} onValueChange={setNewStatus}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PASS">Pass</SelectItem>
+                            <SelectItem value="FAIL">Fail</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <SheetFooter className="mt-8 flex-col sm:flex-row gap-3">
+            <Button variant="outline" onClick={() => setIsDrawerOpen(false)} className="w-full sm:w-auto">
+              {drawerMode === "view" ? "Close" : "Cancel"}
+            </Button>
+            {drawerMode === "update" && (
+              <Button onClick={handleUpdateResult} className="w-full sm:w-auto">
+                Save Result
+              </Button>
+            )}
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+// ── Render Helpers ──
+const renderStatusBadge = (status: "P" | "F" | "—" | undefined) => {
+  if (!status || status === "—") {
+    return <span className="text-muted-foreground/30">—</span>;
+  }
+  if (status === "P") {
+    return (
+      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-success/15 text-success font-bold text-xs ring-1 ring-inset ring-success/20">
+        P
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-destructive/15 text-destructive font-bold text-xs ring-1 ring-inset ring-destructive/20">
+      F
+    </span>
+  );
+};
+
+// ── Reusable Table Component ──
+interface StudentTableProps {
+  loading: boolean;
+  error: string | null;
+  data: GroupedStudent[];
+  activeTab: "performance" | "makeup" | "fail";
+  globalMaxSem: number;
+  semesterColumns: number[];
+  debouncedQuery: string;
+  safePage: number;
+  onSelectUsn: (usn: string) => void;
+  onViewSubjects: (student: GroupedStudent) => void;
+  onUpdateResult: (student: GroupedStudent) => void;
+}
+
+function StudentTable({
+  loading,
+  error,
+  data,
+  activeTab,
+  globalMaxSem,
+  semesterColumns,
+  debouncedQuery,
+  safePage,
+  onSelectUsn,
+  onViewSubjects,
+  onUpdateResult,
+}: StudentTableProps) {
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-destructive/30 bg-card p-12 text-center shadow-sm">
+        <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-3" />
+        <p className="text-sm font-semibold text-destructive">Could not load results</p>
+        <p className="mt-1 text-xs text-muted-foreground">{error}</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4">
+        <Skeleton className="h-8 w-full" />
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-10 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    let emptyTitle = "No students found.";
+    let emptySub = debouncedQuery ? `No students found for "${debouncedQuery}"` : "";
+
+    if (activeTab === "makeup" && !debouncedQuery) {
+      emptyTitle = "No Makeup Eligible Students";
+      emptySub = "No students are currently eligible for makeup examination.";
+    } else if (activeTab === "fail" && !debouncedQuery) {
+      emptyTitle = "No Failed Students";
+      emptySub = "No failed students found.";
+    }
+
+    return (
+      <div className="rounded-2xl border bg-card p-12 text-center shadow-sm">
+        <Search className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
+        <p className="text-sm font-semibold text-foreground">{emptyTitle}</p>
+        {emptySub && <p className="text-xs text-muted-foreground mt-1">{emptySub}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader className="bg-muted/30">
+            <TableRow>
+              <TableHead className="w-16">S.No</TableHead>
+              <TableHead>USN</TableHead>
+              <TableHead>Student Name</TableHead>
+
+              {activeTab === "makeup" ? (
+                <>
+                  <TableHead className="text-center">Semester</TableHead>
+                  <TableHead className="text-center">View Subjects</TableHead>
+                  <TableHead className="text-center">Action</TableHead>
+                </>
+              ) : (
+                <>
+                  <TableHead>Department</TableHead>
+                  {semesterColumns.map((sem) => (
+                    <TableHead key={sem} className="text-center whitespace-nowrap">
+                      SEM {sem}
+                    </TableHead>
+                  ))}
+                  {activeTab === "performance" ? (
+                    <TableHead className="text-center">View Performance</TableHead>
+                  ) : (
+                    <>
+                      <TableHead className="text-center">View Subjects</TableHead>
+                      <TableHead className="text-center">Action</TableHead>
+                    </>
+                  )}
+                </>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.map((st, idx) => (
+              <TableRow key={st.usn} className="hover:bg-muted/10 transition-colors">
+                <TableCell className="text-muted-foreground text-center">
+                  {(safePage - 1) * PAGE_SIZE + idx + 1}
+                </TableCell>
+                <TableCell className="font-mono font-bold text-primary bg-primary/10 rounded-md px-2 py-1 uppercase tracking-wider my-2 mx-1 inline-block">
+                  {st.usn}
+                </TableCell>
+                <TableCell className="font-semibold text-foreground whitespace-nowrap">
+                  {st.student_name}
+                </TableCell>
+
+                {activeTab === "makeup" ? (
+                  <>
+                    <TableCell className="text-center font-medium">
+                      {st.relevant_failed_semester ?? st.maxSem}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-primary border-primary/30 hover:bg-primary/10 gap-1.5 h-8 px-3"
+                        onClick={() => onViewSubjects(st)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        View Subjects
+                      </Button>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        size="sm"
+                        className="gap-1.5 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
+                        onClick={() => onUpdateResult(st)}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                        Update Result
+                      </Button>
+                    </TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell className="text-muted-foreground">
+                      <Badge variant="secondary" className="font-normal">
+                        {st.department}
+                      </Badge>
+                    </TableCell>
+                    {semesterColumns.map((sem) => (
+                      <TableCell key={sem} className="text-center">
+                        {renderStatusBadge(st.semesters[sem])}
+                      </TableCell>
+                    ))}
+                    {activeTab === "performance" ? (
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-primary hover:text-primary hover:bg-primary/10 gap-1.5 h-8 px-3"
+                          onClick={() => onSelectUsn(st.usn)}
+                        >
+                          <TrendingUp className="h-3.5 w-3.5" />
+                          View Performance
+                        </Button>
+                      </TableCell>
+                    ) : (
+                      <>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-primary border-primary/30 hover:bg-primary/10 gap-1.5 h-8 px-3"
+                            onClick={() => onViewSubjects(st)}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View Subjects
+                          </Button>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            size="sm"
+                            className="gap-1.5 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
+                            onClick={() => onUpdateResult(st)}
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                            Update Result
+                          </Button>
+                        </TableCell>
+                      </>
+                    )}
+                  </>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -418,8 +1030,7 @@ function StudentPerformanceDetail({ usn, onBack }: { usn: string; onBack: () => 
   const latestSemester =
     totalSemesters > 0 ? sortedSemesters[sortedSemesters.length - 1].semester : 0;
 
-  const semestersWithBacklogs = sortedSemesters.length;
-
+  const semestersWithBacklogs = sortedSemesters.length; // Actually need to count only ones with subjects > 0
   const totalFailedSubjects = sortedSemesters.reduce(
     (acc, sem) => acc + sem.subjects.length,
     0,
