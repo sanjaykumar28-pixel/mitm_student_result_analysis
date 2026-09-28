@@ -291,6 +291,37 @@ class AdminStudentPerformanceResponse(BaseModel):
     total: int
     departments: list[str]
     students: list[AdminStudentPerformanceRow]
+    passed_students: int = 0
+
+
+class AdminPerformanceStatusSubject(BaseModel):
+    subject_code: str
+    subject_name: str
+    internal_marks: float | str | None = None
+    external_marks: float | str | None = None
+    total_marks: float | None = None
+    grade: Literal["X", "F"]
+    status: Literal["FAIL"] = "FAIL"
+
+
+class AdminPerformanceStatusSemester(BaseModel):
+    semester: int
+    sgpa: float | None = None
+    cgpa: float | None = None
+    subjects: list[AdminPerformanceStatusSubject]
+
+
+class AdminPerformanceStatusStudent(BaseModel):
+    usn: str
+    student_name: str
+    department: str
+    semesters: list[AdminPerformanceStatusSemester]
+
+
+class AdminPerformanceStatusResponse(BaseModel):
+    total: int
+    departments: list[str]
+    students: list[AdminPerformanceStatusStudent]
 
 
 class AdminFailedSubject(BaseModel):

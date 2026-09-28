@@ -210,6 +210,37 @@ export interface AdminStudentPerformanceResponse {
   total: number;
   departments: string[];
   students: AdminStudentPerformanceRow[];
+  passed_students: number;
+}
+
+export interface AdminPerformanceStatusSubject {
+  subject_code: string;
+  subject_name: string;
+  internal_marks: number | string | null;
+  external_marks: number | string | null;
+  total_marks: number | null;
+  grade: "X" | "F";
+  status: "FAIL";
+}
+
+export interface AdminPerformanceStatusSemester {
+  semester: number;
+  sgpa: number | null;
+  cgpa: number | null;
+  subjects: AdminPerformanceStatusSubject[];
+}
+
+export interface AdminPerformanceStatusStudent {
+  usn: string;
+  student_name: string;
+  department: string;
+  semesters: AdminPerformanceStatusSemester[];
+}
+
+export interface AdminPerformanceStatusResponse {
+  total: number;
+  departments: string[];
+  students: AdminPerformanceStatusStudent[];
 }
 
 export interface AdminFailedSubject {
@@ -296,6 +327,14 @@ export const adminService = {
   getStudentPerformance: (params?: { department?: string; search?: string }) =>
     api
       .get<AdminStudentPerformanceResponse>("/admin/student-performance", { params })
+      .then((r) => r.data),
+  getMakeupEligibleStudents: (params?: { department?: string; search?: string }) =>
+    api
+      .get<AdminPerformanceStatusResponse>("/admin/student-performance/makeup-eligible", { params })
+      .then((r) => r.data),
+  getFailedPerformanceStudents: (params?: { department?: string; search?: string }) =>
+    api
+      .get<AdminPerformanceStatusResponse>("/admin/student-performance/fail", { params })
       .then((r) => r.data),
   getFailedSubjects: (usn: string) =>
     api

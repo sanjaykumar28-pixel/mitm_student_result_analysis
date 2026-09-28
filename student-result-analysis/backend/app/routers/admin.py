@@ -24,6 +24,7 @@ from app.schemas import (
     AdminDashboardResultSummaryResponse,
     AdminStudentFailedSubjectsResponse,
     AdminStudentPerformanceResponse,
+    AdminPerformanceStatusResponse,
     ImportUploadResponse,
 )
 from app.services.excel_parser import parse_result_workbook
@@ -38,6 +39,8 @@ from app.services.results import (
     get_admin_result_details,
     list_admin_results,
     list_admin_student_performance,
+    list_admin_makeup_eligible_students,
+    list_admin_failed_students,
     list_admin_toppers,
 )
 from app.services.dashboard import (
@@ -252,6 +255,37 @@ def get_student_performance(
         dept = None
     q = search.strip() if search and search.strip() else None
     return list_admin_student_performance(db, department=dept, search=q)
+
+
+@router.get(
+    "/student-performance/makeup-eligible",
+    response_model=AdminPerformanceStatusResponse,
+)
+def get_makeup_eligible_students(
+    department: str | None = Query(None, max_length=80),
+    search: str | None = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminPerformanceStatusResponse:
+    dept = department.strip() if department and department.strip() else None
+    if dept and dept.lower() == "all":
+        dept = None
+    q = search.strip() if search and search.strip() else None
+    return list_admin_makeup_eligible_students(db, department=dept, search=q)
+
+
+@router.get("/student-performance/fail", response_model=AdminPerformanceStatusResponse)
+def get_failed_students(
+    department: str | None = Query(None, max_length=80),
+    search: str | None = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+    _: Login = Depends(require_admin),
+) -> AdminPerformanceStatusResponse:
+    dept = department.strip() if department and department.strip() else None
+    if dept and dept.lower() == "all":
+        dept = None
+    q = search.strip() if search and search.strip() else None
+    return list_admin_failed_students(db, department=dept, search=q)
 
 
 @router.get(

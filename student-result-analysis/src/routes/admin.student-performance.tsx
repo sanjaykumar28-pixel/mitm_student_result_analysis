@@ -68,10 +68,8 @@ interface GroupedStudent {
   department: string;
   semesters: Record<number, "P" | "F" | "—">;
   maxSem: number;
-  // TODO: Implement academic classification from backend when available.
-  // The backend does not currently send this field.
-  academic_status?: "PASS" | "MAKEUP_ELIGIBLE" | "FAIL";
   relevant_failed_semester?: number; // E.g. the specific semester for makeup
+  relevant_failed_semesters?: number[];
 }
 
 // ── Main Page Component ──
@@ -93,6 +91,9 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
   const [semesterFilter, setSemesterFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [groupedStudents, setGroupedStudents] = useState<GroupedStudent[]>([]);
+  const [makeupRecords, setMakeupRecords] = useState<GroupedStudent[]>([]);
+  const [failRecords, setFailRecords] = useState<GroupedStudent[]>([]);
+  const [passedStudentCount, setPassedStudentCount] = useState(0);
   const [apiDepartments, setApiDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +109,7 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
   );
   const [drawerFailedSubjects, setDrawerFailedSubjects] =
     useState<AdminStudentFailedSubjectsResponse | null>(null);
+  const [drawerGrade, setDrawerGrade] = useState<"X" | "F" | null>(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerError, setDrawerError] = useState<string | null>(null);
 
@@ -128,12 +130,16 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
     setLoading(true);
     setError(null);
 
-    adminService
-      .getStudentPerformance({
-        department: dept === "all" ? undefined : dept,
-        search: debouncedQuery || undefined,
-      })
-      .then((data) => {
+    const params = {
+      department: dept === "all" ? undefined : dept,
+      search: debouncedQuery || undefined,
+    };
+    Promise.all([
+      adminService.getStudentPerformance(params),
+      adminService.getMakeupEligibleStudents(params),
+      adminService.getFailedPerformanceStudents(params),
+    ])
+      .then(([data, makeupData, failData]) => {
         if (cancelled) return;
 
         setGroupedStudents(
@@ -153,12 +159,33 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
                 (maxSemester, semester) => Math.max(maxSemester, semester.semester),
                 0,
               ),
-              // TODO: Consume actual classification when backend implements it
-              // academic_status: (row as any).academic_status,
-              // relevant_failed_semester: (row as any).relevant_failed_semester,
             };
           }),
         );
+        const toGroupedStudents = (
+          records: typeof makeupData.students,
+          category: "MAKEUP_ELIGIBLE" | "FAIL",
+        ): GroupedStudent[] => records.map((row) => {
+          const semesters: Record<number, "P" | "F" | "—"> = {};
+          row.semesters.forEach((semester) => {
+            semesters[semester.semester] = "F";
+          });
+          const relevantSemesters = row.semesters.map((semester) => semester.semester);
+          return {
+            usn: row.usn,
+            student_name: row.student_name,
+            department: row.department,
+            semesters,
+            maxSem: relevantSemesters.length ? Math.max(...relevantSemesters) : 0,
+            relevant_failed_semester: relevantSemesters.length
+              ? Math.max(...relevantSemesters)
+              : undefined,
+            relevant_failed_semesters: relevantSemesters,
+          };
+        });
+        setMakeupRecords(toGroupedStudents(makeupData.students, "MAKEUP_ELIGIBLE"));
+        setFailRecords(toGroupedStudents(failData.students, "FAIL"));
+        setPassedStudentCount(data.passed_students);
         setApiDepartments(data.departments);
         setPage(1);
       })
@@ -167,6 +194,9 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
         const message = getApiErrorMessage(err, "Could not load performance data.");
         setError(message);
         setGroupedStudents([]);
+        setMakeupRecords([]);
+        setFailRecords([]);
+        setPassedStudentCount(0);
         toast.error(message);
       })
       .finally(() => {
@@ -187,29 +217,21 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
   const filteredGroupedStudents = useMemo(() => {
     if (semesterFilter === "all") return groupedStudents;
     const targetSem = parseInt(semesterFilter, 10);
-    return groupedStudents.filter((st) => {
-      // In performance tab, filter by maxSem or if they have a result in that sem
-      if (activeTab === "performance") {
-        return !!st.semesters[targetSem];
-      }
-      // For makeup/fail, filter by the relevant failed semester
-      return st.relevant_failed_semester === targetSem;
-    });
-  }, [groupedStudents, semesterFilter, activeTab]);
+    return groupedStudents.filter((student) => !!student.semesters[targetSem]);
+  }, [groupedStudents, semesterFilter]);
 
-  // Derive categorised students
   const makeupStudents = useMemo(
-    () => filteredGroupedStudents.filter((s) => s.academic_status === "MAKEUP_ELIGIBLE"),
-    [filteredGroupedStudents],
+    () => semesterFilter === "all"
+      ? makeupRecords
+      : makeupRecords.filter((student) => student.relevant_failed_semesters?.includes(Number(semesterFilter))),
+    [makeupRecords, semesterFilter],
   );
   const failStudents = useMemo(
-    () => filteredGroupedStudents.filter((s) => s.academic_status === "FAIL"),
-    [filteredGroupedStudents],
+    () => semesterFilter === "all"
+      ? failRecords
+      : failRecords.filter((student) => student.relevant_failed_semesters?.includes(Number(semesterFilter))),
+    [failRecords, semesterFilter],
   );
-  const passedStudents = useMemo(
-    () => groupedStudents.filter((s) => s.academic_status === "PASS"),
-    [groupedStudents],
-  ); // For summary only, ignore semester filter
 
   // Pagination for active tab
   const activeList =
@@ -233,10 +255,14 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
   const semesterColumns = Array.from({ length: globalMaxSem }, (_, i) => i + 1);
 
   // Summary counts
-  const totalCount = groupedStudents.length;
-  const passedCount = passedStudents.length;
-  const makeupCount = groupedStudents.filter((s) => s.academic_status === "MAKEUP_ELIGIBLE").length;
-  const failCount = groupedStudents.filter((s) => s.academic_status === "FAIL").length;
+  const totalCount = semesterFilter === "all"
+    ? groupedStudents.length
+    : groupedStudents.filter((student) => !!student.semesters[Number(semesterFilter)]).length;
+  const passedCount = semesterFilter === "all"
+    ? passedStudentCount
+    : groupedStudents.filter((student) => student.semesters[Number(semesterFilter)] === "P").length;
+  const makeupCount = makeupStudents.length;
+  const failCount = failStudents.length;
 
   const passedPercent = totalCount > 0 ? ((passedCount / totalCount) * 100).toFixed(1) : "0.0";
   const makeupPercent = totalCount > 0 ? ((makeupCount / totalCount) * 100).toFixed(1) : "0.0";
@@ -250,6 +276,7 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
     setDrawerLoading(true);
     setDrawerError(null);
     setDrawerFailedSubjects(null);
+    setDrawerGrade(activeTab === "makeup" ? "X" : activeTab === "fail" ? "F" : null);
     setSelectedSubjectCode("");
     setNewGrade("");
     setNewStatus("");
@@ -266,6 +293,15 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
         setDrawerLoading(false);
       });
   };
+
+  const drawerSemesters = (drawerFailedSubjects?.semesters ?? [])
+    .map((semester) => ({
+      ...semester,
+      subjects: semester.subjects.filter((subject) =>
+        drawerGrade ? subject.grade === drawerGrade : true,
+      ),
+    }))
+    .filter((semester) => semester.subjects.length > 0);
 
   const handleUpdateResult = () => {
     if (!selectedSubjectCode || !newGrade || !newStatus) {
@@ -453,19 +489,6 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
         </TabsContent>
 
         <TabsContent value="makeup" className="mt-0">
-          {/* TODO: Remove the alert banner once backend API provides academic_status classification */}
-          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-4">
-            <div className="flex">
-              <AlertTriangle className="h-5 w-5 text-amber-600 mr-3" />
-              <div>
-                <h3 className="text-sm font-medium text-amber-800">API Integration Pending</h3>
-                <p className="mt-1 text-sm text-amber-700">
-                  Makeup Eligible classification is not yet provided by the backend API. Showing
-                  empty state until integrated.
-                </p>
-              </div>
-            </div>
-          </div>
           <StudentTable
             loading={loading}
             error={error}
@@ -482,18 +505,6 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
         </TabsContent>
 
         <TabsContent value="fail" className="mt-0">
-          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-4">
-            <div className="flex">
-              <AlertTriangle className="h-5 w-5 text-amber-600 mr-3" />
-              <div>
-                <h3 className="text-sm font-medium text-amber-800">API Integration Pending</h3>
-                <p className="mt-1 text-sm text-amber-700">
-                  Fail classification is not yet provided by the backend API. Showing empty state
-                  until integrated.
-                </p>
-              </div>
-            </div>
-          </div>
           <StudentTable
             loading={loading}
             error={error}
@@ -565,7 +576,9 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
             </SheetTitle>
             <SheetDescription>
               {drawerMode === "view"
-                ? "View failed subjects for the selected student."
+                  ? drawerGrade === "X"
+                    ? "View makeup-eligible subjects for the selected student."
+                    : "View failed subjects for the selected student."
                 : "Update student's result after makeup/re-examination."}
             </SheetDescription>
           </SheetHeader>
@@ -609,14 +622,13 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
               {/* Failed Subjects (Original Result) */}
               <div>
                 <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  Failed Subjects (Original Result)
+                  {drawerGrade === "X" ? "Makeup Eligible Subjects" : "Failed Subjects (Original Result)"}
                 </h4>
                 {drawerError ? (
                   <div className="text-sm text-destructive">{drawerError}</div>
                 ) : drawerLoading ? (
                   <Skeleton className="h-32 w-full" />
-                ) : !drawerFailedSubjects ||
-                  drawerFailedSubjects.semesters.flatMap((s) => s.subjects).length === 0 ? (
+                ) : drawerSemesters.flatMap((semester) => semester.subjects).length === 0 ? (
                   <div className="text-sm text-muted-foreground">No failed subjects found.</div>
                 ) : (
                   <div className="rounded-xl border shadow-sm overflow-hidden bg-background">
@@ -630,16 +642,23 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {drawerFailedSubjects.semesters
-                          .flatMap((s) => s.subjects)
+                        {drawerSemesters
+                          .flatMap((semester) => semester.subjects)
                           .map((sub, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="font-mono py-2">{sub.subject_code}</TableCell>
-                              <TableCell className="py-2">{sub.subject_name}</TableCell>
+                              <TableCell className="py-2">
+                                <div>{sub.subject_name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  CIE {sub.internal_marks ?? "—"} | SEE {sub.external_marks ?? "—"} | Total {sub.total_marks ?? "—"}
+                                </div>
+                              </TableCell>
                               <TableCell className="py-2 font-bold text-destructive">
                                 {sub.grade ?? "F"}
                               </TableCell>
-                              <TableCell className="py-2 text-destructive">Failed</TableCell>
+                              <TableCell className="py-2 text-destructive">
+                                {sub.grade === "X" ? "Makeup Eligible" : "Failed"}
+                              </TableCell>
                             </TableRow>
                           ))}
                       </TableBody>
@@ -662,8 +681,8 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
                           <SelectValue placeholder="Select a failed subject" />
                         </SelectTrigger>
                         <SelectContent>
-                          {drawerFailedSubjects?.semesters
-                            .flatMap((s) => s.subjects)
+                          {drawerSemesters
+                            .flatMap((semester) => semester.subjects)
                             .map((sub, idx) => (
                               <SelectItem key={idx} value={sub.subject_code}>
                                 {sub.subject_code} - {sub.subject_name}

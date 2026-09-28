@@ -1,4 +1,4 @@
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from collections import defaultdict
@@ -14,6 +14,10 @@ from app.schemas import (
     AdminFailedSubjectSemester,
     AdminStudentFailedSubjectsResponse,
     AdminPerformanceSemester,
+    AdminPerformanceStatusResponse,
+    AdminPerformanceStatusSemester,
+    AdminPerformanceStatusStudent,
+    AdminPerformanceStatusSubject,
     AdminStudentPerformanceRow,
     AdminStudentPerformanceResponse,
     AdminTopperRow,
@@ -88,6 +92,7 @@ def list_admin_student_performance(
     }
 
     rows: list[AdminStudentPerformanceRow] = []
+    passed_students = 0
     for student in students:
         semesters = sorted({sem for usn, sem in marks_by_student_semester if usn == student.usn} | {
             sem for usn, sem in results_by_student_semester if usn == student.usn
@@ -117,12 +122,131 @@ def list_admin_student_performance(
                 sgpa=_as_float(result.sgpa) if result else None,
                 cgpa=_as_float(result.cgpa) if result else None,
             ))
+        if performance_semesters:
+            latest = max(performance_semesters, key=lambda item: item.semester)
+            passed_students += latest.status == "PASS"
         rows.append(AdminStudentPerformanceRow(
             sl_no=student.slno, usn=student.usn, student_name=student.student_name,
             department=student.department, semesters=performance_semesters,
             failed_subject_count=failed_total,
         ))
-    return AdminStudentPerformanceResponse(total=len(rows), departments=departments, students=rows)
+    return AdminStudentPerformanceResponse(
+        total=len(rows),
+        departments=departments,
+        students=rows,
+        passed_students=passed_students,
+    )
+
+
+def _list_admin_performance_status_students(
+    db: Session,
+    *,
+    target_grade: str,
+    department: str | None,
+    search: str | None,
+) -> AdminPerformanceStatusResponse:
+    departments = [
+        row[0]
+        for row in db.query(Student.department)
+        .distinct()
+        .order_by(Student.department.asc())
+        .all()
+        if row[0]
+    ]
+    query = (
+        db.query(Student, StudentMark, Subject, StudentResult)
+        .join(StudentMark, StudentMark.usn == Student.usn)
+        .join(Subject, Subject.subject_code == StudentMark.subject_code)
+        .outerjoin(
+            StudentResult,
+            and_(
+                StudentResult.usn == StudentMark.usn,
+                StudentResult.semester == StudentMark.semester,
+            ),
+        )
+    )
+    if department:
+        query = query.filter(func.lower(Student.department) == department.lower())
+    if search:
+        like = f"%{search.strip().lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(Student.usn).like(like),
+                func.lower(Student.student_name).like(like),
+            )
+        )
+
+    students_by_usn: dict[str, dict] = {}
+    rows = query.order_by(
+        Student.department.asc(), Student.student_name.asc(),
+        Student.usn.asc(), StudentMark.semester.asc(), StudentMark.subject_code.asc(),
+    ).all()
+    for student, mark, subject, result in rows:
+        grade = _performance_grade(mark)
+        if grade != target_grade:
+            continue
+        student_row = students_by_usn.setdefault(
+            student.usn,
+            {
+                "usn": student.usn,
+                "student_name": student.student_name,
+                "department": student.department,
+                "semesters": {},
+            },
+        )
+        semester_row = student_row["semesters"].setdefault(
+            mark.semester,
+            {
+                "semester": mark.semester,
+                "sgpa": _as_float(result.sgpa) if result else None,
+                "cgpa": _as_float(result.cgpa) if result else None,
+                "subjects": [],
+            },
+        )
+        semester_row["subjects"].append(
+            AdminPerformanceStatusSubject(
+                subject_code=mark.subject_code,
+                subject_name=subject.subject_name or subject.subject_code,
+                internal_marks=mark.internal_status or _as_float(mark.internal_marks),
+                external_marks=mark.external_status or _as_float(mark.external_marks),
+                total_marks=_as_float(mark.total_marks),
+                grade=target_grade,
+            )
+        )
+
+    students = [
+        AdminPerformanceStatusStudent(
+            usn=row["usn"],
+            student_name=row["student_name"],
+            department=row["department"],
+            semesters=[
+                AdminPerformanceStatusSemester(**semester)
+                for _, semester in sorted(row["semesters"].items())
+            ],
+        )
+        for row in students_by_usn.values()
+    ]
+    return AdminPerformanceStatusResponse(
+        total=len(students),
+        departments=departments,
+        students=students,
+    )
+
+
+def list_admin_makeup_eligible_students(
+    db: Session, *, department: str | None, search: str | None
+) -> AdminPerformanceStatusResponse:
+    return _list_admin_performance_status_students(
+        db, target_grade="X", department=department, search=search
+    )
+
+
+def list_admin_failed_students(
+    db: Session, *, department: str | None, search: str | None
+) -> AdminPerformanceStatusResponse:
+    return _list_admin_performance_status_students(
+        db, target_grade="F", department=department, search=search
+    )
 
 
 def get_admin_failed_subjects(db: Session, *, usn: str) -> AdminStudentFailedSubjectsResponse:

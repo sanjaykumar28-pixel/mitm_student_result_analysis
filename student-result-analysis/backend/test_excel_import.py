@@ -29,6 +29,8 @@ from app.services.results import (
     get_admin_failed_subjects,
     get_admin_result_details,
     get_student_sgpa_cgpa,
+    list_admin_failed_students,
+    list_admin_makeup_eligible_students,
     list_admin_student_performance,
     list_student_results,
 )
@@ -324,3 +326,77 @@ def test_import_persists_special_marks_without_numeric_substitution():
         assert gpa_subjects["M24MCA101"].marks is None
         assert gpa_subjects["M24MCA101"].status == "INCOMPLETE"
         assert gpa_subjects["M24MCAL106"].status == "FAIL"
+
+
+def test_performance_categories_use_distinct_students_and_matching_grades():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        cases = [
+            ("4MH24MC001", "X ONLY", [("M24MCA101", 40, 10, None, None, "X")]),
+            ("4MH24MC002", "F ONLY", [("M24MCA102", 20, 20, None, None, "F")]),
+            (
+                "4MH24MC003", "MIXED",
+                [
+                    ("M24MCA103", 40, 10, None, None, "X"),
+                    ("M24MCA104", 20, 20, None, None, "F"),
+                ],
+            ),
+            ("4MH24MC004", "PASS ONLY", [("M24MCA105", 40, 30, None, None, "A")]),
+            ("4MH24MC005", "AB ONLY", [("M24MCA106", None, 30, "AB", None, "AB")]),
+            ("4MH24MC006", "W ONLY", [("M24MCA107", 30, 30, None, None, "W")]),
+            ("4MH24MC007", "NE ONLY", [("M24MCA108", None, None, None, "NE", "NE")]),
+        ]
+        for usn, name, subject_rows in cases:
+            db.add(Student(usn=usn, student_name=name, department="MCA", semester=1))
+            for code, internal, external, internal_status, external_status, grade in subject_rows:
+                db.add(Subject(subject_code=code, semester=1, department="MCA", credits=4))
+                db.add(
+                    StudentMark(
+                        usn=usn,
+                        subject_code=code,
+                        semester=1,
+                        internal_marks=internal,
+                        external_marks=external,
+                        internal_status=internal_status,
+                        external_status=external_status,
+                        grade=grade,
+                    )
+                )
+            db.add(
+                StudentResult(
+                    usn=usn,
+                    semester=1,
+                    grand_total=sum((row[1] or 0) + (row[2] or 0) for row in subject_rows),
+                    average_marks=0,
+                    credits_earned=0,
+                    grade="F",
+                    sgpa=0,
+                )
+            )
+        db.commit()
+
+        makeup = list_admin_makeup_eligible_students(db, department="MCA", search=None)
+        failed = list_admin_failed_students(db, department="MCA", search=None)
+        makeup_by_usn = {student.usn: student for student in makeup.students}
+        failed_by_usn = {student.usn: student for student in failed.students}
+
+        assert makeup.total == len(makeup.students) == 2
+        assert failed.total == len(failed.students) == 2
+        assert set(makeup_by_usn) == {"4MH24MC001", "4MH24MC003"}
+        assert set(failed_by_usn) == {"4MH24MC002", "4MH24MC003"}
+        assert len(makeup_by_usn["4MH24MC003"].semesters[0].subjects) == 1
+        assert len(failed_by_usn["4MH24MC003"].semesters[0].subjects) == 1
+
+        makeup_subject = makeup_by_usn["4MH24MC001"].semesters[0].subjects[0]
+        assert (makeup_subject.subject_code, makeup_subject.grade, makeup_subject.status) == (
+            "M24MCA101", "X", "FAIL",
+        )
+        assert (makeup_subject.internal_marks, makeup_subject.external_marks, makeup_subject.total_marks) == (
+            40, 10, 50,
+        )
+        assert failed_by_usn["4MH24MC002"].semesters[0].subjects[0].grade == "F"
+
+        performance = list_admin_student_performance(db, department="MCA", search=None)
+        assert performance.total == 7
+        assert performance.passed_students == 1
