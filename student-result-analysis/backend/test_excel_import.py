@@ -1,6 +1,8 @@
 import sys
+from io import BytesIO
 from pathlib import Path
 
+from openpyxl import Workbook
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import Session
 
@@ -8,9 +10,28 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from app.database import Base
 from app.models import Student, StudentMark, StudentResult, Subject
-from app.services.excel_parser import ParsedMark, ParsedStudent, ParsedWorkbook, SubjectColumns
+from app.services.excel_parser import (
+    ParsedMark,
+    ParsedStudent,
+    ParsedWorkbook,
+    SubjectColumns,
+    parse_result_workbook,
+)
 from app.services.import_results import ImportValidationError, persist_parsed_workbook
-from app.services.grading import fail_reasons, is_subject_pass
+from app.services.grading import (
+    fail_reasons,
+    is_subject_pass,
+    subject_fail_reasons,
+    subject_result,
+    subject_status,
+)
+from app.services.results import (
+    get_admin_failed_subjects,
+    get_admin_result_details,
+    get_student_sgpa_cgpa,
+    list_admin_student_performance,
+    list_student_results,
+)
 
 
 def make_workbook(name: str = "AALIYA TABASUM") -> ParsedWorkbook:
@@ -134,5 +155,172 @@ def test_component_mark_failure_rules_are_or_conditions():
     assert is_subject_pass(34, 30, 64) is False
     assert is_subject_pass(40, 25, 65) is True
     assert is_subject_pass(20, 20, 40) is False
-    assert fail_reasons(20, 20, 40) == ["CIE below 35", "SEE below 25"]
+    assert fail_reasons(20, 20, 40) == ["CIE below 35"]
     assert is_subject_pass(None, 25, 65) is None
+
+
+def test_special_status_precedence_and_x_grade():
+    assert subject_result(65, 4, internal_marks=40, external_marks=25)[0] == "B+"
+    assert subject_result(45, 4, internal_marks=20, external_marks=25)[0] == "F"
+    assert subject_result(None, 4, internal_status="AB", external_marks=20)[0] == "AB"
+    assert subject_result(None, 4, internal_status="NE", result_status="W")[0] == "W"
+    assert subject_result(54, 4, internal_marks=35, external_marks=19)[0] == "X"
+    assert subject_result(None, 4, result_status="X")[0] == "X"
+    assert subject_result(None, 4, result_status="X")[1] == 0
+    assert subject_status(None, result_status="AB") == "INCOMPLETE"
+    assert subject_status(None, result_status="W") == "INCOMPLETE"
+    assert subject_status(None, result_status="NE") == "INCOMPLETE"
+    assert subject_status(None, result_status="X") == "FAIL"
+    assert subject_status(65, internal_marks=40, external_marks=25) == "PASS"
+    assert subject_status(45, internal_marks=20, external_marks=25) == "FAIL"
+    assert subject_status(None, internal_marks=40) == "INCOMPLETE"
+    assert subject_fail_reasons(None, internal_marks=40) == []
+    assert subject_result(60, 4, internal_marks=40, external_marks=20)[0] != "X"
+
+
+def test_excel_parser_preserves_special_component_and_result_statuses():
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Data Entry"
+    sheet.append(["MCA 1st SEMESTER"])
+    sheet.append([
+        "USN", "STUDENT NAME",
+        "M24MCA101", None, None,
+        "M24MCA102", None, None,
+        "M24MCA103", None, None,
+        "M24MCA104", None, None,
+    ])
+    sheet.append([None, None, "IA", "Ext", "T", "IA", "Ext", "T", "IA", "Ext", "T", "IA", "Ext", "T"])
+    sheet.append([
+        "4MH24MC001", "STUDENT NAME",
+        "AB", 42, None,
+        40, 35, "W",
+        None, None, "NE",
+        40, 30, "X",
+    ])
+    buffer = BytesIO()
+    workbook.save(buffer)
+
+    parsed = parse_result_workbook(buffer.getvalue(), "result.xlsx")
+    marks = parsed.students[0].marks
+    assert marks[0].internal_marks == "AB"
+    assert marks[0].external_marks == 42
+    assert marks[0].total_marks is None
+    assert marks[1].total_marks == 75
+    assert marks[1].result_status == "W"
+    assert marks[2].internal_marks is None
+    assert marks[2].external_marks is None
+    assert marks[2].result_status == "NE"
+    assert marks[3].total_marks == 70
+    assert marks[3].result_status == "X"
+
+
+def test_import_persists_special_marks_without_numeric_substitution():
+    parsed = make_workbook()
+    parsed.subjects.extend([
+        SubjectColumns("M24MCA103", 9, 10, 11),
+        SubjectColumns("M24MCA104", 12, 13, 14),
+        SubjectColumns("M24MCA105", 15, 16, 17),
+        SubjectColumns("M24MCA108", 18, 19, 20),
+    ])
+    parsed.students[0].marks = [
+        ParsedMark("M24MCA101", "AB", 42, None),
+        ParsedMark("M24MCAL106", 40, 18, 58),
+        ParsedMark("M24MCA103", 40, 35, 75, result_status="W"),
+        ParsedMark("M24MCA104", None, "NE", None),
+        ParsedMark("M24MCA105", 40, 25, 65),
+        ParsedMark("M24MCA108", 20, 25, 45),
+    ]
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        db.add_all([
+            Subject(subject_code="M24MCA101", semester=1, department="MCA", credits=4),
+            Subject(subject_code="M24MCAL106", semester=1, department="MCA", credits=2),
+            Subject(subject_code="M24MCA103", semester=1, department="MCA", credits=4),
+            Subject(subject_code="M24MCA104", semester=1, department="MCA", credits=4),
+            Subject(subject_code="M24MCA105", semester=1, department="MCA", credits=4),
+            Subject(subject_code="M24MCA108", semester=1, department="MCA", credits=4),
+        ])
+        db.commit()
+        persist_parsed_workbook(db, parsed)
+
+        marks = {mark.subject_code: mark for mark in db.query(StudentMark).all()}
+        assert marks["M24MCA101"].internal_marks is None
+        assert marks["M24MCA101"].internal_status == "AB"
+        assert marks["M24MCA101"].grade == "AB"
+        assert marks["M24MCAL106"].internal_marks == 40
+        assert marks["M24MCAL106"].external_marks == 18
+        assert marks["M24MCAL106"].grade == "X"
+        assert marks["M24MCA103"].grade == "W"
+        assert marks["M24MCA104"].external_marks is None
+        assert marks["M24MCA104"].external_status == "NE"
+        assert marks["M24MCA104"].grade == "NE"
+        assert marks["M24MCA105"].grade == "B+"
+        assert marks["M24MCA108"].grade == "F"
+
+        detail = get_admin_result_details(db, usn="4MH24MC001", semester=1)
+        subjects = {subject.subject_code: subject for subject in detail.semesters[0].subjects}
+        assert subjects["M24MCA101"].internal_marks == "AB"
+        assert subjects["M24MCA101"].grade == "AB"
+        assert subjects["M24MCA101"].status == "INCOMPLETE"
+        assert subjects["M24MCAL106"].grade == "X"
+        assert subjects["M24MCAL106"].status == "FAIL"
+        assert subjects["M24MCA103"].grade == "W"
+        assert subjects["M24MCA103"].status == "INCOMPLETE"
+        assert subjects["M24MCA104"].external_marks == "NE"
+        assert subjects["M24MCA104"].grade == "NE"
+        assert subjects["M24MCA104"].status == "INCOMPLETE"
+        assert subjects["M24MCA105"].grade == "B+"
+        assert subjects["M24MCA108"].grade == "F"
+        assert detail.semesters[0].total_credits == 4
+
+        failed = get_admin_failed_subjects(db, usn="4MH24MC001")
+        failed_by_code = {
+            subject.subject_code: subject
+            for semester in failed.semesters
+            for subject in semester.subjects
+        }
+        assert set(failed_by_code) == {"M24MCAL106", "M24MCA108"}
+        assert failed_by_code["M24MCAL106"].grade == "X"
+        assert failed_by_code["M24MCAL106"].status == "FAIL"
+
+        performance = list_admin_student_performance(db, department="MCA", search=None)
+        assert performance.students[0].semesters[0].status == "FAIL"
+        assert performance.students[0].semesters[0].failed_subject_count == 2
+
+        db.add(Subject(subject_code="M24MCA201", semester=2, department="MCA", credits=3))
+        db.flush()
+        db.add(StudentMark(
+            usn="4MH24MC001", subject_code="M24MCA201", semester=2,
+            internal_marks=40, external_marks=30, grade="A",
+        ))
+        db.add(StudentResult(
+            usn="4MH24MC001", semester=2, grand_total=70, average_marks=70,
+            credits_earned=3, grade="A", sgpa=8,
+        ))
+        db.commit()
+
+        student_results = list_student_results(db, usn="4MH24MC001")
+        assert [semester.semester for semester in student_results.semesters] == [1, 2]
+        student_subjects = {
+            subject.code: subject
+            for semester in student_results.semesters
+            for subject in semester.subjects
+        }
+        assert student_subjects["M24MCA101"].grade == "AB"
+        assert student_subjects["M24MCA101"].status == "INCOMPLETE"
+        assert student_subjects["M24MCAL106"].grade == "X"
+        assert student_subjects["M24MCAL106"].status == "FAIL"
+        assert student_subjects["M24MCA103"].grade == "W"
+        assert student_subjects["M24MCA104"].grade == "NE"
+
+        student_gpa = get_student_sgpa_cgpa(db, usn="4MH24MC001")
+        assert [semester.semester for semester in student_gpa.semesters] == [1, 2]
+        assert student_gpa.semesters[0].credits_earned == 4
+        assert student_gpa.semesters[0].sgpa == 1.27
+        assert student_gpa.cgpa == 2.08
+        gpa_subjects = {subject.code: subject for subject in student_gpa.semesters[0].subjects}
+        assert gpa_subjects["M24MCA101"].marks is None
+        assert gpa_subjects["M24MCA101"].status == "INCOMPLETE"
+        assert gpa_subjects["M24MCAL106"].status == "FAIL"

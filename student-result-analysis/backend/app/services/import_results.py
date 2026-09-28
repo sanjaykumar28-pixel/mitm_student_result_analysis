@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.models import Student, StudentMark, StudentResult, Subject
 from app.schemas import ImportErrorItemSchema, ImportStudentPreview, ImportUploadResponse
 from app.services.excel_parser import ImportErrorItem, ParsedWorkbook
-from app.services.grading import subject_result
+from app.services.grading import SPECIAL_STATUS_PRIORITY, subject_result
 
 
 def _error_payload(errors: list[ImportErrorItem]) -> list[ImportErrorItemSchema]:
@@ -114,16 +114,28 @@ def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUpload
             registered_credits = 0
             earned_credits = 0
             grand_total = 0.0
+            numeric_subject_count = 0
+            subject_grades: list[str] = []
 
             for mark in row.marks:
                 credits = credit_by_code[mark.subject_code]
+                internal_marks = mark.internal_marks if isinstance(mark.internal_marks, (int, float)) else None
+                external_marks = mark.external_marks if isinstance(mark.external_marks, (int, float)) else None
+                internal_status = mark.internal_marks if isinstance(mark.internal_marks, str) else None
+                external_status = mark.external_marks if isinstance(mark.external_marks, str) else None
                 grade, earned, points = subject_result(
                     mark.total_marks,
                     credits,
-                    internal_marks=mark.internal_marks,
-                    external_marks=mark.external_marks,
+                    internal_marks=internal_marks,
+                    external_marks=external_marks,
+                    internal_status=internal_status,
+                    external_status=external_status,
+                    result_status=mark.result_status,
                 )
-                grand_total += mark.total_marks
+                subject_grades.append(grade)
+                if mark.total_marks is not None:
+                    grand_total += mark.total_marks
+                    numeric_subject_count += 1
                 registered_credits += credits
                 earned_credits += earned
                 weighted_points += points
@@ -144,21 +156,29 @@ def persist_parsed_workbook(db: Session, parsed: ParsedWorkbook) -> ImportUpload
                             subject_code=mark.subject_code,
                             semester=semester,
                             academic_year=academic_year,
-                            internal_marks=mark.internal_marks,
-                            external_marks=mark.external_marks,
+                            internal_marks=internal_marks,
+                            external_marks=external_marks,
+                            internal_status=internal_status,
+                            external_status=external_status,
                             grade=grade,
                         )
                     )
                 else:
-                    existing.internal_marks = mark.internal_marks
-                    existing.external_marks = mark.external_marks
+                    existing.internal_marks = internal_marks
+                    existing.external_marks = external_marks
+                    existing.internal_status = internal_status
+                    existing.external_status = external_status
                     existing.academic_year = academic_year
                     existing.grade = grade
                 marks_upserted += 1
 
-            average = round(grand_total / len(row.marks), 2) if row.marks else 0.0
+            average = round(grand_total / numeric_subject_count, 2) if numeric_subject_count else 0.0
             sgpa = round(weighted_points / registered_credits, 2) if registered_credits else 0.0
-            overall_grade, _, _ = subject_result(average, 4)
+            statuses = [grade for grade in subject_grades if grade in SPECIAL_STATUS_PRIORITY]
+            if subject_grades and len(statuses) == len(subject_grades):
+                overall_grade = next(status for status in SPECIAL_STATUS_PRIORITY if status in statuses)
+            else:
+                overall_grade, _, _ = subject_result(average, 4)
             result = (
                 db.query(StudentResult)
                 .filter(StudentResult.usn == row.usn, StudentResult.semester == semester)

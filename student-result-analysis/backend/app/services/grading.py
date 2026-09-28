@@ -26,6 +26,115 @@ GRADE_POINTS = {
     "C": 5,
     "F": 0,
 }
+SPECIAL_STATUS_PRIORITY = ("W", "AB", "NE", "X")
+NON_PASS_GRADES = {"F", "W", "AB", "NE", "X"}
+
+
+def special_grade(
+    internal_marks: float | None,
+    external_marks: float | None,
+    *,
+    internal_status: str | None = None,
+    external_status: str | None = None,
+    result_status: str | None = None,
+) -> str | None:
+    statuses = {
+        status.upper()
+        for status in (internal_status, external_status, result_status)
+        if status
+    }
+    for status in SPECIAL_STATUS_PRIORITY:
+        if status in statuses:
+            return status
+    if (
+        internal_marks is not None
+        and external_marks is not None
+        and float(internal_marks) >= 35
+        and float(external_marks) < 20
+    ):
+        return "X"
+    return None
+
+
+def resolve_subject_grade(
+    total: float | None,
+    *,
+    internal_marks: float | None = None,
+    external_marks: float | None = None,
+    internal_status: str | None = None,
+    external_status: str | None = None,
+    result_status: str | None = None,
+) -> str | None:
+    grade = special_grade(
+        internal_marks,
+        external_marks,
+        internal_status=internal_status,
+        external_status=external_status,
+        result_status=result_status,
+    )
+    if grade is not None:
+        return grade
+    passed = is_subject_pass(internal_marks, external_marks, total)
+    if passed is None:
+        return letter_grade(total) if total is not None else None
+    if passed is False:
+        return "F"
+    return letter_grade(total) if total is not None else None
+
+
+def subject_status(
+    total: float | None,
+    *,
+    internal_marks: float | None = None,
+    external_marks: float | None = None,
+    internal_status: str | None = None,
+    external_status: str | None = None,
+    result_status: str | None = None,
+) -> str:
+    grade = resolve_subject_grade(
+        total,
+        internal_marks=internal_marks,
+        external_marks=external_marks,
+        internal_status=internal_status,
+        external_status=external_status,
+        result_status=result_status,
+    )
+    if grade is None:
+        return "INCOMPLETE"
+    if grade in {"W", "AB", "NE"}:
+        return "INCOMPLETE"
+    if grade in {"F", "X"}:
+        return "FAIL"
+    return "INCOMPLETE" if total is None else "PASS"
+
+
+def subject_fail_reasons(
+    total: float | None,
+    *,
+    internal_marks: float | None = None,
+    external_marks: float | None = None,
+    internal_status: str | None = None,
+    external_status: str | None = None,
+    result_status: str | None = None,
+) -> list[str]:
+    grade = resolve_subject_grade(
+        total,
+        internal_marks=internal_marks,
+        external_marks=external_marks,
+        internal_status=internal_status,
+        external_status=external_status,
+        result_status=result_status,
+    )
+    if grade is None:
+        return []
+    if grade in {"W", "AB", "NE"}:
+        return []
+    reasons = fail_reasons(internal_marks, external_marks, total)
+    if grade == "X" and not reasons:
+        return ["CIE passed and SEE below 20"]
+    if grade == "F" and not reasons:
+        return ["Grade F"]
+    return reasons
 
 
 def fail_reasons(
@@ -43,10 +152,10 @@ def fail_reasons(
         return []
 
     reasons: list[str] = []
-    if float(internal_marks) < 25:
-        reasons.append("CIE below 25")
-    if float(external_marks) < 25:
-        reasons.append("SEE below 25")
+    if float(internal_marks) < 35:
+        reasons.append("CIE below 35")
+    if float(external_marks) < 20:
+        reasons.append("SEE below 20")
     if float(total_marks) < 40:
         reasons.append("Total below 40")
     return reasons
@@ -95,20 +204,31 @@ def letter_grade(total: float) -> str:
 
 
 def subject_result(
-    total: float,
+    total: float | None,
     credits: int,
     *,
     internal_marks: float | None = None,
     external_marks: float | None = None,
+    internal_status: str | None = None,
+    external_status: str | None = None,
+    result_status: str | None = None,
 ) -> tuple[str, int, float]:
     """Calculate a grade and credit outcome.
 
     When component marks are supplied, the academic minimums take precedence
     over a total-only letter-grade band.
     """
-    passed = is_subject_pass(internal_marks, external_marks, total)
-    grade = "F" if passed is False else letter_grade(total)
-    points = GRADE_POINTS[grade]
-    earned = 0 if grade == "F" else credits
+    grade = resolve_subject_grade(
+        total,
+        internal_marks=internal_marks,
+        external_marks=external_marks,
+        internal_status=internal_status,
+        external_status=external_status,
+        result_status=result_status,
+    )
+    if grade is None:
+        grade = "F"
+    points = GRADE_POINTS.get(grade, 0)
+    earned = 0 if grade in NON_PASS_GRADES else credits
     return grade, earned, credits * points
 

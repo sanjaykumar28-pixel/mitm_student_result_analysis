@@ -121,7 +121,9 @@ function AdminPrintCard({ row, detail }: { row: AdminResultRow; detail: AdminRes
           <tbody>
             {displaySubjects.map((subject, idx) => {
               const credReg = subject.credits ?? null;
-              const credEar = subject.grade !== "F" ? credReg : 0;
+              const credEar = ["F", "W", "AB", "NE", "X"].includes(subject.grade ?? "")
+                ? 0
+                : credReg;
 
               return (
                 <tr key={subject.subject_code + idx}>

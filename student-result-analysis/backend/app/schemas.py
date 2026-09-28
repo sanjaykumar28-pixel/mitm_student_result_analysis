@@ -233,8 +233,9 @@ class AdminResultSubject(BaseModel):
     subject_name: str
     credits: int | None = None
     grade: str | None = None
-    internal_marks: float | None = None
-    external_marks: float | None = None
+    status: Literal["PASS", "FAIL", "INCOMPLETE"]
+    internal_marks: float | str | None = None
+    external_marks: float | str | None = None
     total_marks: float | None = None
     grade_point: int | None = None
 
@@ -296,12 +297,13 @@ class AdminFailedSubject(BaseModel):
     subject_code: str
     subject_name: str
     credits: int | None = None
-    internal_marks: float | None = None
-    external_marks: float | None = None
+    internal_marks: float | str | None = None
+    external_marks: float | str | None = None
     total_marks: float | None = None
     grade: str | None = None
     grade_point: int | None = None
     fail_reason: str
+    status: Literal["FAIL"] = "FAIL"
 
 
 class AdminFailedSubjectSemester(BaseModel):
@@ -324,10 +326,11 @@ class StudentSubjectMark(BaseModel):
     name: str
     credits: int | None = None
     marks: float | None = None
-    internal_marks: float | None = None
-    external_marks: float | None = None
+    internal_marks: float | str | None = None
+    external_marks: float | str | None = None
     total_marks: float | None = None
     grade: str | None = None
+    status: Literal["PASS", "FAIL", "INCOMPLETE"]
 
 
 class StudentSemesterResult(BaseModel):
@@ -370,8 +373,9 @@ class StudentGpaSubject(BaseModel):
     code: str
     name: str
     credits: int
-    marks: float
+    marks: float | None = None
     grade: str | None = None
+    status: Literal["PASS", "FAIL", "INCOMPLETE"]
     grade_point: int | None = None
 
 

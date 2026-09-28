@@ -17,6 +17,10 @@ const gradeClass: Record<string, string> = {
   B: "bg-warning/20 text-warning-foreground",
   C: "bg-muted text-muted-foreground",
   F: "bg-destructive/15 text-destructive",
+  X: "bg-destructive/15 text-destructive",
+  AB: "bg-muted text-muted-foreground",
+  W: "bg-muted text-muted-foreground",
+  NE: "bg-muted text-muted-foreground",
 };
 
 export function ResultsTable({ subjects }: { subjects: SubjectResult[] }) {
@@ -60,8 +64,14 @@ export function ResultsTable({ subjects }: { subjects: SubjectResult[] }) {
               <TableCell className="text-center">
                 {!s.grade ? (
                   <span className="text-xs text-muted-foreground">—</span>
-                ) : s.grade === "F" ? (
+                ) : s.grade === "F" || s.grade === "X" ? (
                   <span className="text-xs font-medium text-destructive">Fail</span>
+                ) : s.grade === "W" ? (
+                  <span className="text-xs font-medium text-muted-foreground">Withdrawn</span>
+                ) : s.grade === "AB" ? (
+                  <span className="text-xs font-medium text-muted-foreground">Absent</span>
+                ) : s.grade === "NE" ? (
+                  <span className="text-xs font-medium text-muted-foreground">Not Evaluated</span>
                 ) : (
                   <span className="text-xs font-medium text-success">Pass</span>
                 )}

@@ -17,6 +17,10 @@ const gradeClass: Record<string, string> = {
   B: "bg-warning/20 text-warning-foreground",
   C: "bg-muted text-muted-foreground",
   F: "bg-destructive/15 text-destructive",
+  X: "bg-destructive/15 text-destructive",
+  AB: "bg-muted text-muted-foreground",
+  W: "bg-muted text-muted-foreground",
+  NE: "bg-muted text-muted-foreground",
 };
 
 function fmt(value: number | null | undefined, digits = 2) {

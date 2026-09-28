@@ -117,6 +117,7 @@ export interface AdminResultRow {
   average_marks: number;
   credits_earned: number | null;
   grade: string | null;
+  status: "PASS" | "FAIL" | "INCOMPLETE";
   sgpa: number | null;
   cgpa: number | null;
 }
@@ -152,8 +153,8 @@ export interface AdminResultSubject {
   subject_name: string;
   credits: number | null;
   grade: string | null;
-  internal_marks: number | null;
-  external_marks: number | null;
+  internal_marks: number | string | null;
+  external_marks: number | string | null;
   total_marks: number | null;
   grade_point: number | null;
 }
@@ -215,10 +216,11 @@ export interface AdminFailedSubject {
   subject_code: string;
   subject_name: string;
   credits: number | null;
-  internal_marks: number | null;
-  external_marks: number | null;
+  internal_marks: number | string | null;
+  external_marks: number | string | null;
   total_marks: number | null;
   grade: string | null;
+  status: "FAIL";
   grade_point: number | null;
   fail_reason: string;
 }

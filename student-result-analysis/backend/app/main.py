@@ -31,6 +31,20 @@ def ensure_schema_compatibility() -> None:
                 text("ALTER TABLE Subjects ADD COLUMN department VARCHAR(80) NULL AFTER semester")
             )
 
+        mark_columns = {
+            row[0]: row for row in conn.execute(text("SHOW COLUMNS FROM Student_Marks")).all()
+        }
+        for column in ("internal_marks", "external_marks"):
+            if mark_columns[column][2] == "NO":
+                conn.execute(
+                    text(f"ALTER TABLE Student_Marks MODIFY COLUMN {column} DECIMAL(5,2) NULL DEFAULT NULL")
+                )
+        for column in ("internal_status", "external_status"):
+            if column not in mark_columns:
+                conn.execute(
+                    text(f"ALTER TABLE Student_Marks ADD COLUMN {column} VARCHAR(4) NULL")
+                )
+
 
 def seed_admin(db: Session) -> None:
     email = settings.admin_email.lower()

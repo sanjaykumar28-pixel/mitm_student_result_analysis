@@ -30,6 +30,7 @@ interface PredictRow {
   credits: number;
   internal: number;
   external: number;
+  specialStatus: string | null;
 }
 
 interface SemRow {
@@ -68,8 +69,9 @@ function SgpaCgpa() {
         setRows(
           data.subjects.map((s, i) => {
             // Estimate some default values if we only have total marks
-            const defaultInternal = Math.min(MAX_CIE, Math.floor((s.marks || 0) / 2));
-            const defaultExternal = Math.min(MAX_SEE, Math.ceil((s.marks || 0) / 2));
+            const sourceTotal = s.marks ?? 0;
+            const defaultInternal = Math.min(MAX_CIE, Math.floor(sourceTotal / 2));
+            const defaultExternal = Math.min(MAX_SEE, Math.ceil(sourceTotal / 2));
 
             return {
               id: i + 1,
@@ -78,6 +80,9 @@ function SgpaCgpa() {
               credits: s.credits || 3,
               internal: defaultInternal,
               external: defaultExternal,
+              specialStatus: ["AB", "W", "X", "NE"].includes(s.grade ?? "")
+                ? s.grade
+                : null,
             };
           }),
         );
@@ -110,8 +115,8 @@ function SgpaCgpa() {
   const computedRows = rows.map((r) => {
     const total = (r.internal || 0) + (r.external || 0);
     const percentage = Math.min((total / MAX_TOTAL) * 100, 100);
-    const grade = calculateGrade(percentage);
-    const gp = gradePoint[grade];
+    const grade = r.specialStatus ?? calculateGrade(percentage);
+    const gp = grade in gradePoint ? gradePoint[grade as Grade] : 0;
     return { ...r, total, percentage, grade, gp };
   });
 
@@ -259,6 +264,7 @@ function SgpaCgpa() {
                                     j === i
                                       ? {
                                           ...x,
+                                          specialStatus: null,
                                           internal: Math.min(
                                             MAX_CIE,
                                             Math.max(0, Number(e.target.value)),
@@ -283,6 +289,7 @@ function SgpaCgpa() {
                                     j === i
                                       ? {
                                           ...x,
+                                          specialStatus: null,
                                           external: Math.min(
                                             MAX_SEE,
                                             Math.max(0, Number(e.target.value)),
@@ -300,8 +307,8 @@ function SgpaCgpa() {
                           </TableCell>
                           <TableCell>
                             <Badge
-                              variant={r.grade === "F" ? "destructive" : "outline"}
-                              className={r.grade !== "F" ? "bg-primary/5 border-primary/20" : ""}
+                              variant={r.grade === "F" || r.grade === "X" ? "destructive" : "outline"}
+                              className={r.grade !== "F" && r.grade !== "X" ? "bg-primary/5 border-primary/20" : ""}
                             >
                               {r.grade}
                             </Badge>
@@ -336,6 +343,7 @@ function SgpaCgpa() {
                         credits: 3,
                         internal: 0,
                         external: 0,
+                        specialStatus: null,
                       },
                     ])
                   }

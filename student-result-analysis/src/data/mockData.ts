@@ -1,4 +1,5 @@
 export type Grade = "O" | "A+" | "A" | "B+" | "B" | "C" | "F";
+export type SpecialGrade = "AB" | "W" | "X" | "NE";
 
 export const gradePoint: Record<Grade, number> = {
   O: 10,
@@ -33,7 +34,7 @@ export interface SubjectResult {
   name: string;
   credits: number;
   marks: number;
-  grade: Grade | "";
+  grade: Grade | SpecialGrade | "";
 }
 
 export interface SemesterResult {

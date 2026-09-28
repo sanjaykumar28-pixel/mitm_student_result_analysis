@@ -5,10 +5,11 @@ export interface StudentSubjectMark {
   name: string;
   credits: number | null;
   marks: number | null;
-  internal_marks: number | null;
-  external_marks: number | null;
+  internal_marks: number | string | null;
+  external_marks: number | string | null;
   total_marks: number | null;
   grade: string | null;
+  status: "PASS" | "FAIL" | "INCOMPLETE";
 }
 
 export interface StudentSemesterResult {
@@ -46,8 +47,9 @@ export interface StudentGpaSubject {
   code: string;
   name: string;
   credits: number;
-  marks: number;
+  marks: number | null;
   grade: string | null;
+  status: "PASS" | "FAIL" | "INCOMPLETE";
   grade_point: number | null;
 }
 

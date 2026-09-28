@@ -11,7 +11,8 @@ from openpyxl.worksheet.worksheet import Worksheet
 MAX_FILE_BYTES = 10 * 1024 * 1024
 USN_RE = re.compile(r"^[0-9][A-Z0-9]{7,19}$")
 SUBJECT_CODE_RE = re.compile(r"^[A-Z]{1,5}\d{2}[A-Z]{2,5}\d{2,3}$")
-ABSENT_MARKS = {"AB", "A", "NE", "MP", "AA", "ABSENT", "-"}
+SPECIAL_MARKS = {"AB", "W", "X", "NE"}
+ABSENT_MARKS = {"A", "MP", "AA", "ABSENT", "-"}
 
 
 @dataclass
@@ -33,9 +34,10 @@ class SubjectColumns:
 @dataclass
 class ParsedMark:
     subject_code: str
-    internal_marks: float
-    external_marks: float
-    total_marks: float
+    internal_marks: float | str | None
+    external_marks: float | str | None
+    total_marks: float | None
+    result_status: str | None = None
 
 
 @dataclass
@@ -138,11 +140,24 @@ def _parse_academic_year(text: str) -> str | None:
     return None
 
 
-def _to_mark(value: Any, *, row: int, usn: str, subject: str, field: str, errors: list[ImportErrorItem]) -> float | None:
+def _to_mark(
+    value: Any,
+    *,
+    row: int,
+    usn: str,
+    subject: str,
+    field: str,
+    errors: list[ImportErrorItem],
+    allow_missing: bool = False,
+) -> float | str | None:
     raw = _cell_str(value)
     if value is None or raw == "":
+        if allow_missing:
+            return None
         errors.append(ImportErrorItem(row, usn, subject, f"Missing {field} marks"))
         return None
+    if raw.upper() in SPECIAL_MARKS:
+        return raw.upper()
     if raw.upper() in ABSENT_MARKS:
         return 0.0
     if raw.startswith("="):
@@ -386,20 +401,34 @@ def parse_result_workbook(content: bytes, filename: str) -> ParsedWorkbook:
 
         marks: list[ParsedMark] = []
         for subject in subjects:
-            ia = _to_mark(_at(grid, row_idx, subject.ia_col), row=excel_row, usn=usn, subject=subject.code, field="IA", errors=errors)
-            ext = _to_mark(_at(grid, row_idx, subject.ext_col), row=excel_row, usn=usn, subject=subject.code, field="Ext", errors=errors)
-            if ia is None or ext is None:
+            total_status = _cell_upper(_at(grid, row_idx, subject.total_col))
+            has_result_status = total_status in SPECIAL_MARKS
+            ia = _to_mark(
+                _at(grid, row_idx, subject.ia_col), row=excel_row, usn=usn,
+                subject=subject.code, field="IA", errors=errors, allow_missing=has_result_status,
+            )
+            ext = _to_mark(
+                _at(grid, row_idx, subject.ext_col), row=excel_row, usn=usn,
+                subject=subject.code, field="Ext", errors=errors, allow_missing=has_result_status,
+            )
+            if (ia is None or ext is None) and not has_result_status:
                 continue
-            computed = round(ia + ext, 2)
-            if computed > 500:
+            computed = (
+                round(ia + ext, 2)
+                if isinstance(ia, float) and isinstance(ext, float)
+                else None
+            )
+            if computed is not None and computed > 500:
                 errors.append(ImportErrorItem(excel_row, usn, subject.code, "IA+Ext exceeds 500"))
                 continue
+            result_status = total_status if has_result_status else None
             marks.append(
                 ParsedMark(
                     subject_code=subject.code,
                     internal_marks=ia,
                     external_marks=ext,
                     total_marks=computed,
+                    result_status=result_status,
                 )
             )
 

@@ -13,7 +13,7 @@ from app.schemas import (
     AdminDashboardPerformanceSemester,
     AdminDashboardResultSummaryResponse,
 )
-from app.services.grading import is_subject_pass
+from app.services.grading import subject_status
 
 
 def current_academic_year(today: date | None = None) -> str:
@@ -51,14 +51,22 @@ def _evaluated_student_semesters(
 
     evaluated: dict[tuple[str, int], bool] = {}
     for key, marks in marks_by_key.items():
-        outcomes = [
-            is_subject_pass(
-                float(mark.internal_marks) if mark.internal_marks is not None else None,
-                float(mark.external_marks) if mark.external_marks is not None else None,
-                float(mark.total_marks) if mark.total_marks is not None else None,
+        outcomes = []
+        for mark in marks:
+            internal = float(mark.internal_marks) if mark.internal_marks is not None else None
+            external = float(mark.external_marks) if mark.external_marks is not None else None
+            total = float(mark.total_marks) if mark.total_marks is not None else None
+            outcome = subject_status(
+                total,
+                internal_marks=internal,
+                external_marks=external,
+                internal_status=mark.internal_status,
+                external_status=mark.external_status,
+                result_status=mark.grade,
             )
-            for mark in marks
-        ]
+            outcomes.append(
+                True if outcome == "PASS" else False if outcome == "FAIL" else None
+            )
         if outcomes and all(outcome is not None for outcome in outcomes):
             evaluated[key] = all(outcomes)
     return evaluated

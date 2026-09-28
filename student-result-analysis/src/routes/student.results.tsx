@@ -56,7 +56,10 @@ function StudentResults() {
   const totalCreditsReg = subjects.reduce((a, s) => a + (s.credits || 0), 0);
   const totalCreditsEar =
     semData?.credits_earned ??
-    subjects.reduce((a, s) => a + (s.grade !== "F" ? s.credits || 0 : 0), 0);
+    subjects.reduce(
+      (a, s) => a + (!["F", "W", "AB", "NE", "X"].includes(s.grade ?? "") ? s.credits || 0 : 0),
+      0,
+    );
 
   const totalPoints = useMemo(() => {
     if (semData?.sgpa != null && totalCreditsEar) {
@@ -237,7 +240,9 @@ function StudentResults() {
               <tbody>
                 {subjects.map((s, idx) => {
                   const gp = s.grade && s.grade in gradePoint ? gradePoint[s.grade as Grade] : "—";
-                  const creditsEar = s.grade !== "F" ? s.credits : 0;
+                  const creditsEar = ["F", "W", "AB", "NE", "X"].includes(s.grade ?? "")
+                    ? 0
+                    : s.credits;
                   return (
                     <tr key={s.code}>
                       <td className="border border-black p-2 text-center">{idx + 1}</td>

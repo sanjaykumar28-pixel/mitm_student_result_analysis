@@ -31,7 +31,13 @@ from app.schemas import (
     StudentSubjectMark,
     StudentSubjectScore,
 )
-from app.services.grading import GRADE_POINTS, fail_reasons, has_complete_marks, is_subject_pass, letter_grade
+from app.services.grading import (
+    GRADE_POINTS,
+    NON_PASS_GRADES,
+    resolve_subject_grade,
+    subject_fail_reasons,
+    subject_status,
+)
 
 
 def _as_float(value) -> float | None:
@@ -41,15 +47,19 @@ def _as_float(value) -> float | None:
 
 
 def _performance_grade(mark: StudentMark) -> str | None:
-    """Resolve a display grade without trusting an old total-only stored grade."""
-    passed = is_subject_pass(
-        _as_float(mark.internal_marks), _as_float(mark.external_marks), _as_float(mark.total_marks)
+    """Resolve the subject grade using the shared result rules."""
+    if mark.total_marks is None and not any(
+        (mark.internal_status, mark.external_status, mark.grade)
+    ):
+        return None
+    return resolve_subject_grade(
+        _as_float(mark.total_marks),
+        internal_marks=_as_float(mark.internal_marks),
+        external_marks=_as_float(mark.external_marks),
+        internal_status=mark.internal_status,
+        external_status=mark.external_status,
+        result_status=mark.grade,
     )
-    if passed is False:
-        return "F"
-    if passed is True:
-        return letter_grade(_as_float(mark.total_marks) or 0)
-    return None
 
 
 def list_admin_student_performance(
@@ -87,14 +97,19 @@ def list_admin_student_performance(
         for semester in semesters:
             marks = marks_by_student_semester.get((student.usn, semester), [])
             result = results_by_student_semester.get((student.usn, semester))
-            failures = sum(
-                is_subject_pass(_as_float(mark.internal_marks), _as_float(mark.external_marks), _as_float(mark.total_marks)) is False
+            outcomes = [
+                subject_status(
+                    _as_float(mark.total_marks),
+                    internal_marks=_as_float(mark.internal_marks),
+                    external_marks=_as_float(mark.external_marks),
+                    internal_status=mark.internal_status,
+                    external_status=mark.external_status,
+                    result_status=mark.grade,
+                )
                 for mark in marks
-            )
-            complete = bool(marks) and all(
-                has_complete_marks(_as_float(mark.internal_marks), _as_float(mark.external_marks), _as_float(mark.total_marks))
-                for mark in marks
-            )
+            ]
+            failures = sum(outcome == "FAIL" for outcome in outcomes)
+            complete = bool(outcomes) and all(outcome == "PASS" for outcome in outcomes)
             status = "FAIL" if failures else "PASS" if complete else "INCOMPLETE"
             failed_total += failures
             performance_semesters.append(AdminPerformanceSemester(
@@ -124,7 +139,14 @@ def get_admin_failed_subjects(db: Session, *, usn: str) -> AdminStudentFailedSub
         .all()
     )
     for mark, subject in marks:
-        reasons = fail_reasons(_as_float(mark.internal_marks), _as_float(mark.external_marks), _as_float(mark.total_marks))
+        reasons = subject_fail_reasons(
+            _as_float(mark.total_marks),
+            internal_marks=_as_float(mark.internal_marks),
+            external_marks=_as_float(mark.external_marks),
+            internal_status=mark.internal_status,
+            external_status=mark.external_status,
+            result_status=mark.grade,
+        )
         if not reasons:
             continue
         grade = _performance_grade(mark)
@@ -132,10 +154,12 @@ def get_admin_failed_subjects(db: Session, *, usn: str) -> AdminStudentFailedSub
             subject_code=mark.subject_code,
             subject_name=(subject.subject_name if subject else None) or mark.subject_code,
             credits=subject.credits if subject else None,
-            internal_marks=_as_float(mark.internal_marks), external_marks=_as_float(mark.external_marks),
+            internal_marks=mark.internal_status or _as_float(mark.internal_marks),
+            external_marks=mark.external_status or _as_float(mark.external_marks),
             total_marks=_as_float(mark.total_marks), grade=grade,
             grade_point=GRADE_POINTS.get(grade) if grade else None,
             fail_reason="Multiple criteria failed" if len(reasons) > 1 else reasons[0],
+            status="FAIL",
         ))
     semesters = [AdminFailedSubjectSemester(
         semester=semester, sgpa=_as_float(results[semester].sgpa) if semester in results else None,
@@ -241,8 +265,16 @@ def get_admin_result_details(
                 subject_name=subject.subject_name or subject.subject_code,
                 credits=subject.credits,
                 grade=grade,
-                internal_marks=_as_float(mark.internal_marks),
-                external_marks=_as_float(mark.external_marks),
+                status=subject_status(
+                    _as_float(mark.total_marks),
+                    internal_marks=_as_float(mark.internal_marks),
+                    external_marks=_as_float(mark.external_marks),
+                    internal_status=mark.internal_status,
+                    external_status=mark.external_status,
+                    result_status=mark.grade,
+                ),
+                internal_marks=mark.internal_status or _as_float(mark.internal_marks),
+                external_marks=mark.external_status or _as_float(mark.external_marks),
                 total_marks=_as_float(mark.total_marks),
                 grade_point=GRADE_POINTS.get(grade) if grade else None,
             )
@@ -264,7 +296,7 @@ def get_admin_result_details(
         total_credits = result.credits_earned if result else sum(
             subject.credits or 0
             for subject in subjects
-            if subject.grade != "F"
+            if subject.grade not in NON_PASS_GRADES
         )
         detail_semesters.append(
             AdminResultSemester(
@@ -331,10 +363,18 @@ def _subject_mark(mark: StudentMark, subject: Subject | None) -> StudentSubjectM
         name=name or mark.subject_code,
         credits=credits,
         marks=_as_float(mark.total_marks),
-        internal_marks=_as_float(mark.internal_marks),
-        external_marks=_as_float(mark.external_marks),
+        internal_marks=mark.internal_status or _as_float(mark.internal_marks),
+        external_marks=mark.external_status or _as_float(mark.external_marks),
         total_marks=_as_float(mark.total_marks),
-        grade=mark.grade,
+        grade=_performance_grade(mark),
+        status=subject_status(
+            _as_float(mark.total_marks),
+            internal_marks=_as_float(mark.internal_marks),
+            external_marks=_as_float(mark.external_marks),
+            internal_status=mark.internal_status,
+            external_status=mark.external_status,
+            result_status=mark.grade,
+        ),
     )
 
 
@@ -427,12 +467,7 @@ def _resolved_credits(mark: StudentMark, subject: Subject | None) -> int:
 
 
 def _resolved_grade(mark: StudentMark) -> str | None:
-    if mark.grade:
-        return mark.grade
-    total = _as_float(mark.total_marks)
-    if total is None:
-        return None
-    return letter_grade(total)
+    return _performance_grade(mark)
 
 
 def _computed_gpa_semesters(db: Session, usn: str) -> list[StudentGpaSemester]:
@@ -455,8 +490,16 @@ def _computed_gpa_semesters(db: Session, usn: str) -> list[StudentGpaSemester]:
                 code=mark.subject_code,
                 name=name or mark.subject_code,
                 credits=credits,
-                marks=_as_float(mark.total_marks) or 0,
+                marks=_as_float(mark.total_marks),
                 grade=grade,
+                status=subject_status(
+                    _as_float(mark.total_marks),
+                    internal_marks=_as_float(mark.internal_marks),
+                    external_marks=_as_float(mark.external_marks),
+                    internal_status=mark.internal_status,
+                    external_status=mark.external_status,
+                    result_status=mark.grade,
+                ),
                 grade_point=GRADE_POINTS.get(grade) if grade else None,
             )
         )
@@ -471,7 +514,7 @@ def _computed_gpa_semesters(db: Session, usn: str) -> list[StudentGpaSemester]:
             if item.grade_point is None:
                 continue
             points += item.credits * item.grade_point
-            if item.grade != "F":
+            if item.grade not in NON_PASS_GRADES:
                 earned += item.credits
         sgpa = round(points / registered, 2) if registered else None
         semesters.append(
@@ -491,9 +534,9 @@ def _overall_cgpa(semesters: list[StudentGpaSemester]) -> float | None:
     total_credits = 0
     for semester in semesters:
         for subject in semester.subjects:
-            if subject.grade_point is None or subject.credits <= 0:
+            if subject.credits <= 0:
                 continue
-            total_points += subject.credits * subject.grade_point
+            total_points += subject.credits * (subject.grade_point or 0)
             total_credits += subject.credits
     return round(total_points / total_credits, 2) if total_credits else None
 
@@ -530,7 +573,7 @@ def get_student_analysis(db: Session, *, usn: str) -> StudentAnalysisResponse:
             cgpa_trend.append(
                 StudentChartPoint(semester=f"S{row.semester}", cgpa=round(running / running_credits, 2))
             )
-        marks = [item.marks for item in row.subjects]
+        marks = [item.marks for item in row.subjects if item.marks is not None]
         if marks:
             semester_compare.append(
                 StudentChartPoint(
@@ -540,6 +583,8 @@ def get_student_analysis(db: Session, *, usn: str) -> StudentAnalysisResponse:
                 )
             )
         for item in row.subjects:
+            if item.marks is None:
+                continue
             label = item.name if len(semesters) == 1 else f"{item.name} (S{row.semester})"
             subject_strength.append(StudentSubjectScore(subject=label, score=item.marks))
             if item.grade:

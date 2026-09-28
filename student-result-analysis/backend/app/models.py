@@ -86,8 +86,10 @@ class StudentMark(Base):
     )
     semester: Mapped[int] = mapped_column(Integer, nullable=False)
     academic_year: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    internal_marks: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=0)
-    external_marks: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    internal_marks: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    external_marks: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    internal_status: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    external_status: Mapped[str | None] = mapped_column(String(4), nullable=True)
     total_marks: Mapped[float | None] = mapped_column(
         Numeric(5, 2),
         Computed("internal_marks + external_marks", persisted=True),
