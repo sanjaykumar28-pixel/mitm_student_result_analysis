@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     mysql_host: str = "localhost"
     mysql_port: int = 3306
     mysql_user: str = "root"
-    mysql_password: str = ""
+    mysql_password: str = "root"
     mysql_database: str = "result_analysis"
 
     jwt_secret: str = "change-me"
