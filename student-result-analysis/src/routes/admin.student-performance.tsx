@@ -15,7 +15,6 @@ import {
   Clock,
   XCircle,
   Eye,
-  Edit,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,7 +51,6 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetFooter,
 } from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/admin/student-performance")({
@@ -103,7 +101,6 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
 
   // Drawer states
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<"view" | "update">("view");
   const [selectedStudentForDrawer, setSelectedStudentForDrawer] = useState<GroupedStudent | null>(
     null,
   );
@@ -112,11 +109,6 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
   const [drawerGrade, setDrawerGrade] = useState<"X" | "F" | null>(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerError, setDrawerError] = useState<string | null>(null);
-
-  // Update Result form states (mock/placeholder)
-  const [selectedSubjectCode, setSelectedSubjectCode] = useState<string>("");
-  const [newGrade, setNewGrade] = useState<string>("");
-  const [newStatus, setNewStatus] = useState<string>("");
 
   // Debounce search
   useEffect(() => {
@@ -268,18 +260,14 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
   const makeupPercent = totalCount > 0 ? ((makeupCount / totalCount) * 100).toFixed(1) : "0.0";
   const failPercent = totalCount > 0 ? ((failCount / totalCount) * 100).toFixed(1) : "0.0";
 
-  // Drawer handlers
-  const openDrawer = (student: GroupedStudent, mode: "view" | "update") => {
+  // Drawer handler
+  const openDrawer = (student: GroupedStudent) => {
     setSelectedStudentForDrawer(student);
-    setDrawerMode(mode);
     setIsDrawerOpen(true);
     setDrawerLoading(true);
     setDrawerError(null);
     setDrawerFailedSubjects(null);
     setDrawerGrade(activeTab === "makeup" ? "X" : activeTab === "fail" ? "F" : null);
-    setSelectedSubjectCode("");
-    setNewGrade("");
-    setNewStatus("");
 
     adminService
       .getFailedSubjects(student.usn)
@@ -302,17 +290,6 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
       ),
     }))
     .filter((semester) => semester.subjects.length > 0);
-
-  const handleUpdateResult = () => {
-    if (!selectedSubjectCode || !newGrade || !newStatus) {
-      toast.error("Please fill all required fields.");
-      return;
-    }
-    // TODO: Connect to backend Update API once implemented
-    toast.error("Update API not yet implemented on the backend.", {
-      description: "This feature requires a backend integration that is currently missing.",
-    });
-  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-8">
@@ -483,8 +460,7 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
             debouncedQuery={debouncedQuery}
             safePage={safePage}
             onSelectUsn={onSelectUsn}
-            onViewSubjects={(st) => openDrawer(st, "view")}
-            onUpdateResult={(st) => openDrawer(st, "update")}
+            onViewSubjects={(st) => openDrawer(st)}
           />
         </TabsContent>
 
@@ -499,8 +475,7 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
             debouncedQuery={debouncedQuery}
             safePage={safePage}
             onSelectUsn={onSelectUsn}
-            onViewSubjects={(st) => openDrawer(st, "view")}
-            onUpdateResult={(st) => openDrawer(st, "update")}
+            onViewSubjects={(st) => openDrawer(st)}
           />
         </TabsContent>
 
@@ -515,8 +490,7 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
             debouncedQuery={debouncedQuery}
             safePage={safePage}
             onSelectUsn={onSelectUsn}
-            onViewSubjects={(st) => openDrawer(st, "view")}
-            onUpdateResult={(st) => openDrawer(st, "update")}
+            onViewSubjects={(st) => openDrawer(st)}
           />
         </TabsContent>
       </Tabs>
@@ -559,27 +533,17 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
         </div>
       )}
 
-      {/* ── Drawer for View Subjects / Update Result ── */}
+      {/* ── Drawer for View Subjects ── */}
       <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
         <SheetContent className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl overflow-y-auto">
           <SheetHeader className="mb-6">
             <SheetTitle className="text-2xl flex items-center gap-2">
-              {drawerMode === "view" ? (
-                <>
-                  <Eye className="h-6 w-6 text-primary" /> View Subjects
-                </>
-              ) : (
-                <>
-                  <Edit className="h-6 w-6 text-primary" /> Update Result
-                </>
-              )}
+              <Eye className="h-6 w-6 text-primary" /> View Subjects
             </SheetTitle>
             <SheetDescription>
-              {drawerMode === "view"
-                  ? drawerGrade === "X"
-                    ? "View makeup-eligible subjects for the selected student."
-                    : "View failed subjects for the selected student."
-                : "Update student's result after makeup/re-examination."}
+              {drawerGrade === "X"
+                ? "View makeup-eligible subjects for the selected student."
+                : "View failed subjects for the selected student."}
             </SheetDescription>
           </SheetHeader>
 
@@ -619,7 +583,7 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
                 </div>
               </div>
 
-              {/* Failed Subjects (Original Result) */}
+              {/* Subjects Table */}
               <div>
                 <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                   {drawerGrade === "X" ? "Makeup Eligible Subjects" : "Failed Subjects (Original Result)"}
@@ -629,7 +593,7 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
                 ) : drawerLoading ? (
                   <Skeleton className="h-32 w-full" />
                 ) : drawerSemesters.flatMap((semester) => semester.subjects).length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No failed subjects found.</div>
+                  <div className="text-sm text-muted-foreground">No subjects found.</div>
                 ) : (
                   <div className="rounded-xl border shadow-sm overflow-hidden bg-background">
                     <Table>
@@ -666,80 +630,14 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
                   </div>
                 )}
               </div>
-
-              {/* Update Result Form (Only in update mode) */}
-              {drawerMode === "update" && (
-                <div>
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                    Update Result
-                  </h4>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Select Subject</label>
-                      <Select value={selectedSubjectCode} onValueChange={setSelectedSubjectCode}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a failed subject" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {drawerSemesters
-                            .flatMap((semester) => semester.subjects)
-                            .map((sub, idx) => (
-                              <SelectItem key={idx} value={sub.subject_code}>
-                                {sub.subject_code} - {sub.subject_name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">New Exam Grade</label>
-                        <Select value={newGrade} onValueChange={setNewGrade}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Grade" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="O">O</SelectItem>
-                            <SelectItem value="A+">A+</SelectItem>
-                            <SelectItem value="A">A</SelectItem>
-                            <SelectItem value="B+">B+</SelectItem>
-                            <SelectItem value="B">B</SelectItem>
-                            <SelectItem value="C">C</SelectItem>
-                            <SelectItem value="F">F</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Updated Status</label>
-                        <Select value={newStatus} onValueChange={setNewStatus}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="PASS">Pass</SelectItem>
-                            <SelectItem value="FAIL">Fail</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
-          <SheetFooter className="mt-8 flex-col sm:flex-row gap-3">
-            <Button variant="outline" onClick={() => setIsDrawerOpen(false)} className="w-full sm:w-auto">
-              {drawerMode === "view" ? "Close" : "Cancel"}
+          <div className="mt-8 flex justify-end">
+            <Button variant="outline" onClick={() => setIsDrawerOpen(false)}>
+              Close
             </Button>
-            {drawerMode === "update" && (
-              <Button onClick={handleUpdateResult} className="w-full sm:w-auto">
-                Save Result
-              </Button>
-            )}
-          </SheetFooter>
+          </div>
         </SheetContent>
       </Sheet>
     </div>
@@ -777,7 +675,6 @@ interface StudentTableProps {
   safePage: number;
   onSelectUsn: (usn: string) => void;
   onViewSubjects: (student: GroupedStudent) => void;
-  onUpdateResult: (student: GroupedStudent) => void;
 }
 
 function StudentTable({
@@ -791,7 +688,6 @@ function StudentTable({
   safePage,
   onSelectUsn,
   onViewSubjects,
-  onUpdateResult,
 }: StudentTableProps) {
   if (error) {
     return (
@@ -849,7 +745,6 @@ function StudentTable({
                 <>
                   <TableHead className="text-center">Semester</TableHead>
                   <TableHead className="text-center">View Subjects</TableHead>
-                  <TableHead className="text-center">Action</TableHead>
                 </>
               ) : (
                 <>
@@ -862,10 +757,7 @@ function StudentTable({
                   {activeTab === "performance" ? (
                     <TableHead className="text-center">View Performance</TableHead>
                   ) : (
-                    <>
-                      <TableHead className="text-center">View Subjects</TableHead>
-                      <TableHead className="text-center">Action</TableHead>
-                    </>
+                    <TableHead className="text-center">View Subjects</TableHead>
                   )}
                 </>
               )}
@@ -900,16 +792,6 @@ function StudentTable({
                         View Subjects
                       </Button>
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        size="sm"
-                        className="gap-1.5 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
-                        onClick={() => onUpdateResult(st)}
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                        Update Result
-                      </Button>
-                    </TableCell>
                   </>
                 ) : (
                   <>
@@ -936,29 +818,17 @@ function StudentTable({
                         </Button>
                       </TableCell>
                     ) : (
-                      <>
-                        <TableCell className="text-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-primary border-primary/30 hover:bg-primary/10 gap-1.5 h-8 px-3"
-                            onClick={() => onViewSubjects(st)}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            View Subjects
-                          </Button>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            className="gap-1.5 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
-                            onClick={() => onUpdateResult(st)}
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                            Update Result
-                          </Button>
-                        </TableCell>
-                      </>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-primary border-primary/30 hover:bg-primary/10 gap-1.5 h-8 px-3"
+                          onClick={() => onViewSubjects(st)}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          View Subjects
+                        </Button>
+                      </TableCell>
                     )}
                   </>
                 )}
