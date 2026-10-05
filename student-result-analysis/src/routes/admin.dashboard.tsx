@@ -24,7 +24,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChartComponent } from "@/components/charts/BarChartComponent";
-import { adminService, type AdminResultRow, type AdminTopperRow } from "@/services/adminService";
+import { adminService, type AdminResultRow, type AdminSubjectRow, type AdminTopperRow } from "@/services/adminService";
+import { AcademicPerformanceIntelligence } from "@/components/AcademicPerformanceIntelligence";
 
 export const Route = createFileRoute("/admin/dashboard")({
   component: AdminDashboard,
@@ -71,6 +72,10 @@ function AdminDashboard() {
 
   const [topPerformers, setTopPerformers] = useState<TopPerformerEntry[]>([]);
 
+  // For AcademicPerformanceIntelligence
+  const [allResults, setAllResults] = useState<AdminResultRow[]>([]);
+  const [allSubjects, setAllSubjects] = useState<AdminSubjectRow[]>([]);
+  const [makeupCount, setMakeupCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // ---- data fetch ----------------------------------------------------------
@@ -79,7 +84,7 @@ function AdminDashboard() {
 
     async function loadAll() {
       try {
-        const [students, subjects, resultsData, performanceData, summaryData, passData, toppersData] = await Promise.all([
+        const [students, subjects, resultsData, performanceData, summaryData, passData, toppersData, makeupData] = await Promise.all([
           adminService.getStudents().catch(() => []),
           adminService.getSubjects().catch(() => []),
           adminService
@@ -93,6 +98,7 @@ function AdminDashboard() {
             .getDashboardPassPercentage()
             .catch(() => ({ academic_year: "", passed_students: 0, total_evaluated_students: 0, pass_percentage: 0 })),
           adminService.getToppers().catch(() => ({ toppers: [], department_toppers: [] })),
+          adminService.getMakeupEligibleStudents().catch(() => ({ total: 0, departments: [], students: [] })),
         ]);
 
         if (!mounted) return;
@@ -163,6 +169,10 @@ function AdminDashboard() {
           }));
         setTopPerformers(topList);
 
+        // --- Academic Performance Intelligence data -----------------------
+        setAllResults(resultsData.results ?? []);
+        setAllSubjects(subjects);
+        setMakeupCount(makeupData.total ?? 0);
 
       } catch (err) {
         console.error("Dashboard load error", err);
@@ -299,6 +309,14 @@ function AdminDashboard() {
           loading={loading}
         />
       </div>
+
+      {/* ================================================================
+          ACADEMIC PERFORMANCE INTELLIGENCE
+      ================================================================ */}
+      <AcademicPerformanceIntelligence
+        results={allResults}
+        loading={loading}
+      />
 
       {/* ================================================================
           ANALYTICS ROW  (Performance Overview | Result Summary | Quick Actions)

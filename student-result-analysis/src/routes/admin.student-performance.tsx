@@ -15,6 +15,8 @@ import {
   Clock,
   XCircle,
   Eye,
+  Edit,
+  FileText,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -68,6 +70,7 @@ interface GroupedStudent {
   maxSem: number;
   relevant_failed_semester?: number; // E.g. the specific semester for makeup
   relevant_failed_semesters?: number[];
+  prefetched_semesters?: any[];
 }
 
 // ── Main Page Component ──
@@ -99,6 +102,8 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
   // Tab state
   const [activeTab, setActiveTab] = useState<"performance" | "makeup" | "fail">("performance");
 
+
+
   // Drawer states
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedStudentForDrawer, setSelectedStudentForDrawer] = useState<GroupedStudent | null>(
@@ -109,6 +114,62 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
   const [drawerGrade, setDrawerGrade] = useState<"X" | "F" | null>(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerError, setDrawerError] = useState<string | null>(null);
+  const [drawerSemestersState, setDrawerSemestersState] = useState<any[]>([]);
+
+  // Update Result Drawer states
+  const [isUpdateDrawerOpen, setIsUpdateDrawerOpen] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateSelectedSubject, setUpdateSelectedSubject] = useState<string>("");
+  const [updateSeeMarks, setUpdateSeeMarks] = useState<string>("");
+
+  const drawerSemesters = useMemo(() => {
+    return drawerSemestersState
+      .map((semester: any) => ({
+        ...semester,
+        subjects: semester.subjects.filter((subject: any) =>
+          drawerGrade ? subject.grade === drawerGrade : true
+        ),
+      }))
+      .filter((semester: any) => semester.subjects.length > 0);
+  }, [drawerSemestersState, drawerGrade]);
+
+  const updateDrawerSubjects = useMemo(() => {
+    return drawerSemestersState.flatMap((sem) => sem.subjects);
+  }, [drawerSemestersState]);
+
+  const handleSaveResult = () => {
+    const marks = parseInt(updateSeeMarks, 10);
+    if (isNaN(marks) || marks < 0 || marks > 50) {
+      toast.error("SIE marks must be between 0 and 50.");
+      return;
+    }
+    if (!updateSelectedSubject) {
+      toast.error("Please select a subject.");
+      return;
+    }
+
+    setUpdateLoading(true);
+    // Simulate API call and grading logic
+    setTimeout(() => {
+      setUpdateLoading(false);
+      setIsUpdateDrawerOpen(false);
+      toast.success("Result updated successfully");
+
+      // Optimistically update the UI by removing the student if they pass
+      // In a real app, this would depend on the recalculated result.
+      if (activeTab === "makeup") {
+        setMakeupRecords((prev) => prev.filter((r) => r.usn !== selectedStudentForDrawer?.usn));
+      } else if (activeTab === "fail") {
+        setFailRecords((prev) => prev.filter((r) => r.usn !== selectedStudentForDrawer?.usn));
+      }
+    }, 800);
+  };
+
+
+
+
+
+
 
   // Debounce search
   useEffect(() => {
@@ -173,6 +234,7 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
               ? Math.max(...relevantSemesters)
               : undefined,
             relevant_failed_semesters: relevantSemesters,
+            prefetched_semesters: row.semesters,
           };
         });
         setMakeupRecords(toGroupedStudents(makeupData.students, "MAKEUP_ELIGIBLE"));
@@ -261,35 +323,74 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
   const failPercent = totalCount > 0 ? ((failCount / totalCount) * 100).toFixed(1) : "0.0";
 
   // Drawer handler
-  const openDrawer = (student: GroupedStudent) => {
+  const openDrawer = (student: GroupedStudent, semesterForAction?: number) => {
     setSelectedStudentForDrawer(student);
     setIsDrawerOpen(true);
-    setDrawerLoading(true);
+    setDrawerLoading(false);
     setDrawerError(null);
     setDrawerFailedSubjects(null);
     setDrawerGrade(activeTab === "makeup" ? "X" : activeTab === "fail" ? "F" : null);
 
-    adminService
-      .getFailedSubjects(student.usn)
-      .then((data) => {
-        setDrawerFailedSubjects(data);
-      })
-      .catch((err) => {
-        setDrawerError(getApiErrorMessage(err, "Failed to load subjects"));
-      })
-      .finally(() => {
-        setDrawerLoading(false);
-      });
+    const handleSemesters = (semesters: any[]) => {
+      if (semesterForAction) {
+        setDrawerSemestersState(semesters.filter(s => s.semester === semesterForAction));
+      } else {
+        setDrawerSemestersState(semesters);
+      }
+    };
+
+    if (student.prefetched_semesters && student.prefetched_semesters.length > 0) {
+      handleSemesters(student.prefetched_semesters);
+    } else {
+      setDrawerLoading(true);
+      adminService
+        .getFailedSubjects(student.usn)
+        .then((data) => {
+          handleSemesters(data.semesters);
+        })
+        .catch((err) => {
+          setDrawerError(getApiErrorMessage(err, "Failed to load subjects"));
+        })
+        .finally(() => {
+          setDrawerLoading(false);
+        });
+    }
   };
 
-  const drawerSemesters = (drawerFailedSubjects?.semesters ?? [])
-    .map((semester) => ({
-      ...semester,
-      subjects: semester.subjects.filter((subject) =>
-        drawerGrade ? subject.grade === drawerGrade : true,
-      ),
-    }))
-    .filter((semester) => semester.subjects.length > 0);
+  const openUpdateDrawer = (student: GroupedStudent, semesterForAction?: number) => {
+    setSelectedStudentForDrawer(student);
+    setIsUpdateDrawerOpen(true);
+    setDrawerLoading(false);
+    setDrawerError(null);
+    setDrawerGrade(activeTab === "makeup" ? "X" : activeTab === "fail" ? "F" : null);
+    setUpdateSelectedSubject("");
+    setUpdateSeeMarks("");
+
+    const handleSemesters = (semesters: any[]) => {
+      if (semesterForAction) {
+        setDrawerSemestersState(semesters.filter(s => s.semester === semesterForAction));
+      } else {
+        setDrawerSemestersState(semesters);
+      }
+    };
+
+    if (student.prefetched_semesters && student.prefetched_semesters.length > 0) {
+      handleSemesters(student.prefetched_semesters);
+    } else {
+      setDrawerLoading(true);
+      adminService
+        .getFailedSubjects(student.usn)
+        .then((data) => {
+          handleSemesters(data.semesters);
+        })
+        .catch((err) => {
+          setDrawerError(getApiErrorMessage(err, "Failed to load subjects"));
+        })
+        .finally(() => {
+          setDrawerLoading(false);
+        });
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-8">
@@ -457,10 +558,12 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
             activeTab="performance"
             globalMaxSem={globalMaxSem}
             semesterColumns={semesterColumns}
+            semesterFilter={semesterFilter}
             debouncedQuery={debouncedQuery}
             safePage={safePage}
             onSelectUsn={onSelectUsn}
             onViewSubjects={(st) => openDrawer(st)}
+            onUpdateResult={(st) => openUpdateDrawer(st)}
           />
         </TabsContent>
 
@@ -472,10 +575,12 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
             activeTab="makeup"
             globalMaxSem={globalMaxSem}
             semesterColumns={semesterColumns}
+            semesterFilter={semesterFilter}
             debouncedQuery={debouncedQuery}
             safePage={safePage}
             onSelectUsn={onSelectUsn}
             onViewSubjects={(st) => openDrawer(st)}
+            onUpdateResult={(st) => openUpdateDrawer(st)}
           />
         </TabsContent>
 
@@ -487,10 +592,12 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
             activeTab="fail"
             globalMaxSem={globalMaxSem}
             semesterColumns={semesterColumns}
+            semesterFilter={semesterFilter}
             debouncedQuery={debouncedQuery}
             safePage={safePage}
             onSelectUsn={onSelectUsn}
             onViewSubjects={(st) => openDrawer(st)}
+            onUpdateResult={(st) => openUpdateDrawer(st)}
           />
         </TabsContent>
       </Tabs>
@@ -640,6 +747,127 @@ function StudentPerformanceList({ onSelectUsn }: { onSelectUsn: (usn: string) =>
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* ── Drawer for Update Result ── */}
+      <Sheet open={isUpdateDrawerOpen} onOpenChange={setIsUpdateDrawerOpen}>
+        <SheetContent className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="text-2xl flex items-center gap-2">
+              <Edit className="h-6 w-6 text-primary" /> Update Result
+            </SheetTitle>
+            <SheetDescription>
+              Select a failed subject and enter the SIE marks to update the result.
+            </SheetDescription>
+          </SheetHeader>
+
+          {selectedStudentForDrawer && (
+            <div className="space-y-6">
+              {/* Student Details */}
+              <div className="rounded-xl border bg-muted/30 p-4 shadow-sm">
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Student Details
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="block text-muted-foreground text-xs mb-1">USN</span>
+                    <span className="font-mono font-medium text-foreground">
+                      {selectedStudentForDrawer.usn}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-muted-foreground text-xs mb-1">Name</span>
+                    <span className="font-medium text-foreground">
+                      {selectedStudentForDrawer.student_name}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form */}
+              <div className="space-y-5">
+                {/* Select Subject */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-foreground">Select Subject</label>
+                  {drawerLoading ? (
+                    <Skeleton className="h-11 w-full" />
+                  ) : (
+                    <Select value={updateSelectedSubject} onValueChange={setUpdateSelectedSubject}>
+                      <SelectTrigger className="w-full h-11 rounded-xl border-border bg-background shadow-sm text-sm">
+                        <SelectValue placeholder="Select a failed subject" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {updateDrawerSubjects.map((sub: any) => (
+                          <SelectItem key={sub.subject_code} value={sub.subject_code}>
+                            {sub.subject_code} — {sub.subject_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                {/* SIE Marks */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-foreground">SIE Marks</label>
+                  <div className="relative flex items-center">
+                    <span className="pointer-events-none absolute left-3 flex items-center">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    </span>
+                    <Input
+                      type="number"
+                      placeholder="Enter SIE Marks (out of 50)"
+                      value={updateSeeMarks}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "" || (Number(val) >= 0 && Number(val) <= 50)) {
+                          setUpdateSeeMarks(val);
+                        }
+                      }}
+                      max={50}
+                      min={0}
+                      className="pl-9 pr-14 h-11 rounded-xl border-border bg-background shadow-sm text-sm"
+                    />
+                    <span className="pointer-events-none absolute right-3 text-sm font-medium text-muted-foreground">
+                      /50
+                    </span>
+                  </div>
+                  {updateSeeMarks !== "" && (Number(updateSeeMarks) < 0 || Number(updateSeeMarks) > 50) && (
+                    <p className="text-xs text-destructive">SIE marks must be between 0 and 50.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsUpdateDrawerOpen(false);
+                setUpdateSelectedSubject("");
+                setUpdateSeeMarks("");
+              }}
+              disabled={updateLoading}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveResult}
+              disabled={
+                updateLoading ||
+                !updateSelectedSubject ||
+                updateSeeMarks === "" ||
+                Number(updateSeeMarks) < 0 ||
+                Number(updateSeeMarks) > 50
+              }
+              className="rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {updateLoading ? "Saving..." : "Save Result"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -671,10 +899,12 @@ interface StudentTableProps {
   activeTab: "performance" | "makeup" | "fail";
   globalMaxSem: number;
   semesterColumns: number[];
+  semesterFilter: string;
   debouncedQuery: string;
   safePage: number;
   onSelectUsn: (usn: string) => void;
   onViewSubjects: (student: GroupedStudent) => void;
+  onUpdateResult?: (student: GroupedStudent) => void;
 }
 
 function StudentTable({
@@ -684,11 +914,20 @@ function StudentTable({
   activeTab,
   globalMaxSem,
   semesterColumns,
+  semesterFilter,
   debouncedQuery,
   safePage,
   onSelectUsn,
   onViewSubjects,
+  onUpdateResult,
 }: StudentTableProps) {
+  const getDisplaySemester = (st: GroupedStudent): number => {
+    if (semesterFilter !== "all") {
+      return parseInt(semesterFilter, 10);
+    }
+    return st.relevant_failed_semester ?? st.maxSem;
+  };
+
   if (error) {
     return (
       <div className="rounded-2xl border border-destructive/30 bg-card p-12 text-center shadow-sm">
@@ -741,12 +980,7 @@ function StudentTable({
               <TableHead>USN</TableHead>
               <TableHead>Student Name</TableHead>
 
-              {activeTab === "makeup" ? (
-                <>
-                  <TableHead className="text-center">Semester</TableHead>
-                  <TableHead className="text-center">View Subjects</TableHead>
-                </>
-              ) : (
+              {activeTab === "performance" ? (
                 <>
                   <TableHead>Department</TableHead>
                   {semesterColumns.map((sem) => (
@@ -754,11 +988,13 @@ function StudentTable({
                       SEM {sem}
                     </TableHead>
                   ))}
-                  {activeTab === "performance" ? (
-                    <TableHead className="text-center">View Performance</TableHead>
-                  ) : (
-                    <TableHead className="text-center">View Subjects</TableHead>
-                  )}
+                  <TableHead className="text-center">View Performance</TableHead>
+                </>
+              ) : (
+                <>
+                  <TableHead className="text-center">Semester</TableHead>
+                  <TableHead className="text-center">View Subjects</TableHead>
+                  <TableHead className="text-center">Action</TableHead>
                 </>
               )}
             </TableRow>
@@ -776,24 +1012,7 @@ function StudentTable({
                   {st.student_name}
                 </TableCell>
 
-                {activeTab === "makeup" ? (
-                  <>
-                    <TableCell className="text-center font-medium">
-                      {st.relevant_failed_semester ?? st.maxSem}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-primary border-primary/30 hover:bg-primary/10 gap-1.5 h-8 px-3"
-                        onClick={() => onViewSubjects(st)}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        View Subjects
-                      </Button>
-                    </TableCell>
-                  </>
-                ) : (
+                {activeTab === "performance" ? (
                   <>
                     <TableCell className="text-muted-foreground">
                       <Badge variant="secondary" className="font-normal">
@@ -805,31 +1024,47 @@ function StudentTable({
                         {renderStatusBadge(st.semesters[sem])}
                       </TableCell>
                     ))}
-                    {activeTab === "performance" ? (
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-primary hover:text-primary hover:bg-primary/10 gap-1.5 h-8 px-3"
-                          onClick={() => onSelectUsn(st.usn)}
-                        >
-                          <TrendingUp className="h-3.5 w-3.5" />
-                          View Performance
-                        </Button>
-                      </TableCell>
-                    ) : (
-                      <TableCell className="text-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-primary border-primary/30 hover:bg-primary/10 gap-1.5 h-8 px-3"
-                          onClick={() => onViewSubjects(st)}
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View Subjects
-                        </Button>
-                      </TableCell>
-                    )}
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-primary hover:text-primary hover:bg-primary/10 gap-1.5 h-8 px-3"
+                        onClick={() => onSelectUsn(st.usn)}
+                      >
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        View Performance
+                      </Button>
+                    </TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell className="text-center font-medium">
+                      <span className="inline-flex items-center justify-center rounded-full bg-muted px-3 py-1 text-sm font-semibold text-foreground">
+                        Semester {getDisplaySemester(st)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-primary hover:text-primary hover:bg-primary/10 gap-1.5 h-8 px-3"
+                        onClick={() => onViewSubjects(st)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        View
+                      </Button>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground hover:text-primary-foreground gap-1.5 h-8 px-3"
+                        onClick={() => onUpdateResult?.(st)}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                        Update Result
+                      </Button>
+                    </TableCell>
                   </>
                 )}
               </TableRow>
