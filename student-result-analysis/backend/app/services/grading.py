@@ -34,6 +34,7 @@ def special_grade(
     internal_marks: float | None,
     external_marks: float | None,
     *,
+    total_marks: float | None = None,
     internal_status: str | None = None,
     external_status: str | None = None,
     result_status: str | None = None,
@@ -49,10 +50,10 @@ def special_grade(
     if (
         internal_marks is not None
         and external_marks is not None
-        and float(internal_marks) >= 35
+        and float(internal_marks) >= 30
         and float(external_marks) < 20
     ):
-        return "X"
+        return "F" if total_marks is not None and float(total_marks) < 40 else "X"
     return None
 
 
@@ -68,6 +69,7 @@ def resolve_subject_grade(
     grade = special_grade(
         internal_marks,
         external_marks,
+        total_marks=total,
         internal_status=internal_status,
         external_status=external_status,
         result_status=result_status,
@@ -152,7 +154,7 @@ def fail_reasons(
         return []
 
     reasons: list[str] = []
-    if float(internal_marks) < 35:
+    if float(internal_marks) < 30:
         reasons.append("CIE below 35")
     if float(external_marks) < 20:
         reasons.append("SEE below 20")
